@@ -1,87 +1,71 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>GREAK TOWER</title>
 
     <link rel="stylesheet" href="style.css">
-
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 
 <body>
 
-    <!-- Game -->
+    <!-- GAME -->
     <div id="game"></div>
 
-    <!-- Top HUD -->
-    <header id="hud">
+    <!-- TOP HUD -->
+    <div id="hud">
 
-        <div class="brand">
-            <span class="brand-icon">🏰</span>
-            <span>GREAK TOWER</span>
+        <div id="brand">
+            GREAK TOWER
         </div>
 
-        <div class="stats">
+        <div id="stats">
+
             <div class="stat">
-                <span>💰</span>
-                <span id="coins">100</span>
+                💰 <span id="coins">100</span>
             </div>
 
             <div class="stat">
-                <span>❤️</span>
-                <span id="baseHealth">100</span>
+                ❤️ <span id="baseHealth">100</span>
             </div>
 
             <div class="stat">
-                <span>🌊</span>
-                <span>Wave <b id="wave">1</b></span>
+                🌊 Wave <span id="wave">1</span>
             </div>
+
         </div>
 
-    </header>
+    </div>
 
-    <!-- Bottom Controls -->
+    <!-- BOTTOM CONTROLS -->
     <div id="controls">
 
         <button id="startWave">
-            ▶ START WAVE
+            START WAVE
         </button>
 
         <button id="towerButton">
-            🏹 TOWER — $50
+            🏰 TOWER
         </button>
 
     </div>
 
-    <!-- Message -->
+    <!-- MESSAGE -->
     <div id="message"></div>
 
-    <!-- Game script -->
+    <!-- THREE.JS -->
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    </script>
+
+    <!-- GAME SCRIPT -->
     <script src="script.js"></script>
 
 </body>
 </html>
-```
-
-### ✅ What this does
-
-It gives us the basic structure for:
-
-* **GREAK TOWER** branding
-* 💰 Coins
-* ❤️ Base health
-* 🌊 Wave counter
-* ▶️ Start Wave button
-* 🏹 Tower button
-* Three.js
-* Your `style.css`
-* Your `script.js`
-
-**Don't worry if the game doesn't do anything yet.** That's expected — the actual 3D world and gameplay will go into `script.js`.
-
-Next we'll fill in **`style.css`** and make the game interface look like an actual game. 🎮🔥
