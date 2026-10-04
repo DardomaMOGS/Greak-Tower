@@ -1,8 +1,8 @@
 "use strict";
 
 /* =========================================================
-   GREAK TOWER V0.1
-   Enemies + Rotating Towers
+   GREAK TOWER V0.2
+   MULTIPLE TOWERS UPDATE
    ========================================================= */
 
 const GAME = {
@@ -17,7 +17,8 @@ const GAME = {
     enemiesSpawned: 0,
     spawnTimer: 0,
 
-    towerMode: false
+    towerMode: false,
+    selectedTower: null
 };
 
 let scene;
@@ -31,9 +32,64 @@ const enemies = [];
 const towers = [];
 const projectiles = [];
 
-// ---------------------------------------------------------
-// PATH
-// ---------------------------------------------------------
+/* =========================================================
+   TOWER TYPES
+   ========================================================= */
+
+const TOWER_TYPES = {
+
+    archer: {
+        name: "Archer",
+        emoji: "🏹",
+        cost: 50,
+        range: 7,
+        damage: 20,
+        fireRate: 0.45,
+        projectileSpeed: 18,
+        projectileSize: 0.18,
+
+        baseColor: 0x2196f3,
+        topColor: 0x4fc3f7,
+        barrelColor: 0x263238,
+        projectileColor: 0xffeb3b
+    },
+
+    cannon: {
+        name: "Cannon",
+        emoji: "💥",
+        cost: 100,
+        range: 6.5,
+        damage: 55,
+        fireRate: 1.5,
+        projectileSpeed: 11,
+        projectileSize: 0.32,
+
+        baseColor: 0x424242,
+        topColor: 0x757575,
+        barrelColor: 0x212121,
+        projectileColor: 0xff5722
+    },
+
+    magic: {
+        name: "Magic",
+        emoji: "🔮",
+        cost: 150,
+        range: 10,
+        damage: 40,
+        fireRate: 0.8,
+        projectileSpeed: 15,
+        projectileSize: 0.25,
+
+        baseColor: 0x673ab7,
+        topColor: 0xab47bc,
+        barrelColor: 0x7e57c2,
+        projectileColor: 0xe040fb
+    }
+};
+
+/* =========================================================
+   PATH
+   ========================================================= */
 
 const pathPoints = [
     new THREE.Vector3(-15, 0, -9),
@@ -46,9 +102,9 @@ const pathPoints = [
     new THREE.Vector3(15, 0, 9)
 ];
 
-// ---------------------------------------------------------
-// START
-// ---------------------------------------------------------
+/* =========================================================
+   START GAME
+   ========================================================= */
 
 function startGame() {
 
@@ -86,6 +142,7 @@ function startGame() {
     renderer.shadowMap.enabled = true;
 
     document.getElementById("game").innerHTML = "";
+
     document.getElementById("game").appendChild(
         renderer.domElement
     );
@@ -119,12 +176,12 @@ function startGame() {
 
     animate();
 
-    console.log("GREAK TOWER V0.1 started");
+    console.log("GREAK TOWER V0.2 started");
 }
 
-// ---------------------------------------------------------
-// LIGHTS
-// ---------------------------------------------------------
+/* =========================================================
+   LIGHTS
+   ========================================================= */
 
 function createLights() {
 
@@ -140,20 +197,29 @@ function createLights() {
         1
     );
 
-    sun.position.set(10, 30, 15);
+    sun.position.set(
+        10,
+        30,
+        15
+    );
+
     sun.castShadow = true;
 
     scene.add(sun);
 }
 
-// ---------------------------------------------------------
-// GROUND
-// ---------------------------------------------------------
+/* =========================================================
+   GROUND
+   ========================================================= */
 
 function createGround() {
 
     const ground = new THREE.Mesh(
-        new THREE.BoxGeometry(34, 1, 26),
+        new THREE.BoxGeometry(
+            34,
+            1,
+            26
+        ),
         new THREE.MeshStandardMaterial({
             color: 0x4caf50
         })
@@ -165,9 +231,9 @@ function createGround() {
     scene.add(ground);
 }
 
-// ---------------------------------------------------------
-// PATH
-// ---------------------------------------------------------
+/* =========================================================
+   PATH
+   ========================================================= */
 
 function createPath() {
 
@@ -176,7 +242,11 @@ function createPath() {
             color: 0xd8b36a
         });
 
-    for (let i = 0; i < pathPoints.length - 1; i++) {
+    for (
+        let i = 0;
+        i < pathPoints.length - 1;
+        i++
+    ) {
 
         const a = pathPoints[i];
         const b = pathPoints[i + 1];
@@ -213,9 +283,9 @@ function createPath() {
     }
 }
 
-// ---------------------------------------------------------
-// TREES
-// ---------------------------------------------------------
+/* =========================================================
+   TREES
+   ========================================================= */
 
 function createTrees() {
 
@@ -235,7 +305,11 @@ function createTrees() {
     for (const [x, z] of positions) {
 
         const trunk = new THREE.Mesh(
-            new THREE.BoxGeometry(0.8, 2, 0.8),
+            new THREE.BoxGeometry(
+                0.8,
+                2,
+                0.8
+            ),
             new THREE.MeshStandardMaterial({
                 color: 0x795548
             })
@@ -247,97 +321,190 @@ function createTrees() {
         scene.add(trunk);
 
         const leaves = new THREE.Mesh(
-            new THREE.BoxGeometry(2.5, 2.5, 2.5),
+            new THREE.BoxGeometry(
+                2.5,
+                2.5,
+                2.5
+            ),
             new THREE.MeshStandardMaterial({
                 color: 0x228b22
             })
         );
 
-        leaves.position.set(x, 2.8, z);
+        leaves.position.set(
+            x,
+            2.8,
+            z
+        );
+
         leaves.castShadow = true;
 
         scene.add(leaves);
     }
 }
 
-// ---------------------------------------------------------
-// BASE
-// ---------------------------------------------------------
+/* =========================================================
+   BASE
+   ========================================================= */
 
 function createBase() {
 
     const base = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 3, 3),
+        new THREE.BoxGeometry(
+            3,
+            3,
+            3
+        ),
         new THREE.MeshStandardMaterial({
             color: 0x7e57c2
         })
     );
 
-    base.position.set(15, 1.5, 9);
+    base.position.set(
+        15,
+        1.5,
+        9
+    );
+
     base.castShadow = true;
 
     scene.add(base);
 
     const roof = new THREE.Mesh(
-        new THREE.ConeGeometry(2.5, 2.5, 4),
+        new THREE.ConeGeometry(
+            2.5,
+            2.5,
+            4
+        ),
         new THREE.MeshStandardMaterial({
             color: 0xff9800
         })
     );
 
-    roof.position.set(15, 4.2, 9);
+    roof.position.set(
+        15,
+        4.2,
+        9
+    );
+
     roof.rotation.y = Math.PI / 4;
+
     roof.castShadow = true;
 
     scene.add(roof);
 }
 
-// ---------------------------------------------------------
-// BUTTONS
-// ---------------------------------------------------------
+/* =========================================================
+   BUTTON SETUP
+   ========================================================= */
 
 function setupButtons() {
 
-    document.getElementById("startWave").onclick =
-        startWave;
+    document.getElementById(
+        "startWave"
+    ).onclick = startWave;
 
-    document.getElementById("towerButton").onclick =
-        function () {
-
-            if (GAME.gameOver) return;
-
-            GAME.towerMode = !GAME.towerMode;
-
-            const button =
-                document.getElementById("towerButton");
-
-            if (GAME.towerMode) {
-
-                button.textContent =
-                    "❌ CANCEL TOWER";
-
-                showMessage(
-                    "Click an empty green area to place a tower."
-                );
-
-            } else {
-
-                button.textContent =
-                    "🏰 TOWER";
-
-                showMessage("");
-            }
-        };
+    document.getElementById(
+        "towerButton"
+    ).onclick = openTowerMenu;
 }
 
-// ---------------------------------------------------------
-// MAP CLICK
-// ---------------------------------------------------------
+/* =========================================================
+   TOWER MENU
+   ========================================================= */
+
+function openTowerMenu() {
+
+    if (GAME.gameOver)
+        return;
+
+    const oldMenu =
+        document.getElementById(
+            "towerMenu"
+        );
+
+    if (oldMenu) {
+        oldMenu.remove();
+        return;
+    }
+
+    const menu =
+        document.createElement("div");
+
+    menu.id = "towerMenu";
+
+    menu.style.position = "fixed";
+    menu.style.left = "50%";
+    menu.style.bottom = "95px";
+    menu.style.transform = "translateX(-50%)";
+
+    menu.style.display = "flex";
+    menu.style.gap = "10px";
+    menu.style.padding = "12px";
+
+    menu.style.background =
+        "rgba(20,20,30,0.95)";
+
+    menu.style.border =
+        "2px solid rgba(255,255,255,0.2)";
+
+    menu.style.borderRadius = "14px";
+
+    menu.style.zIndex = "1000";
+
+    for (const key of Object.keys(TOWER_TYPES)) {
+
+        const type =
+            TOWER_TYPES[key];
+
+        const button =
+            document.createElement("button");
+
+        button.textContent =
+            `${type.emoji} ${type.name} - ${type.cost}`;
+
+        button.style.padding = "10px 14px";
+        button.style.border = "none";
+        button.style.borderRadius = "10px";
+        button.style.cursor = "pointer";
+        button.style.fontWeight = "bold";
+
+        button.onclick = function () {
+
+            GAME.selectedTower = key;
+            GAME.towerMode = true;
+
+            menu.remove();
+
+            document.getElementById(
+                "towerButton"
+            ).textContent =
+                "❌ CANCEL";
+
+            showMessage(
+                `${type.emoji} ${type.name} selected — click the map to place it.`
+            );
+        };
+
+        menu.appendChild(button);
+    }
+
+    document.body.appendChild(menu);
+}
+
+/* =========================================================
+   MAP CLICK
+   ========================================================= */
 
 function handleMapClick(event) {
 
-    if (!GAME.towerMode || GAME.gameOver)
+    if (
+        !GAME.towerMode ||
+        GAME.gameOver ||
+        !GAME.selectedTower
+    ) {
         return;
+    }
 
     const rect =
         renderer.domElement.getBoundingClientRect();
@@ -364,7 +531,11 @@ function handleMapClick(event) {
             position
         )
     ) {
-        showMessage("Invalid location.");
+
+        showMessage(
+            "Invalid location."
+        );
+
         return;
     }
 
@@ -374,13 +545,19 @@ function handleMapClick(event) {
     );
 }
 
-// ---------------------------------------------------------
-// PLACE TOWER
-// ---------------------------------------------------------
+/* =========================================================
+   PLACE TOWER
+   ========================================================= */
 
 function placeTower(x, z) {
 
-    const COST = 50;
+    const type =
+        TOWER_TYPES[
+            GAME.selectedTower
+        ];
+
+    if (!type)
+        return;
 
     if (
         x < -16 ||
@@ -388,12 +565,20 @@ function placeTower(x, z) {
         z < -12 ||
         z > 12
     ) {
-        showMessage("You cannot build there.");
+
+        showMessage(
+            "You cannot build there."
+        );
+
         return;
     }
 
     if (isOnPath(x, z)) {
-        showMessage("You cannot build on the path.");
+
+        showMessage(
+            "You cannot build on the path."
+        );
+
         return;
     }
 
@@ -403,7 +588,11 @@ function placeTower(x, z) {
             z - 9
         ) < 3
     ) {
-        showMessage("You cannot build near the base.");
+
+        showMessage(
+            "You cannot build near the base."
+        );
+
         return;
     }
 
@@ -416,25 +605,36 @@ function placeTower(x, z) {
             );
 
         if (distance < 2.5) {
+
             showMessage(
                 "That tower is too close to another tower."
             );
+
             return;
         }
     }
 
-    if (GAME.coins < COST) {
-        showMessage("You need 50 coins.");
+    if (GAME.coins < type.cost) {
+
+        showMessage(
+            `You need ${type.cost} coins.`
+        );
+
         return;
     }
 
     towers.push(
-        createTower(x, z)
+        createTower(
+            x,
+            z,
+            type
+        )
     );
 
-    GAME.coins -= COST;
+    GAME.coins -= type.cost;
 
     GAME.towerMode = false;
+    GAME.selectedTower = null;
 
     document.getElementById(
         "towerButton"
@@ -442,18 +642,24 @@ function placeTower(x, z) {
 
     updateUI();
 
-    showMessage("Tower placed!");
+    showMessage(
+        `${type.emoji} ${type.name} tower placed!`
+    );
 }
 
-// ---------------------------------------------------------
-// PATH CHECK
-// ---------------------------------------------------------
+/* =========================================================
+   PATH CHECK
+   ========================================================= */
 
 function isOnPath(x, z) {
 
     const width = 2.4;
 
-    for (let i = 0; i < pathPoints.length - 1; i++) {
+    for (
+        let i = 0;
+        i < pathPoints.length - 1;
+        i++
+    ) {
 
         const a = pathPoints[i];
         const b = pathPoints[i + 1];
@@ -483,19 +689,25 @@ function isOnPath(x, z) {
     return false;
 }
 
-// ---------------------------------------------------------
-// CREATE TOWER
-// ---------------------------------------------------------
+/* =========================================================
+   CREATE TOWER
+   ========================================================= */
 
-function createTower(x, z) {
+function createTower(x, z, type) {
 
-    const group = new THREE.Group();
+    const group =
+        new THREE.Group();
 
-    // Tower base
+    /* Tower base */
+
     const base = new THREE.Mesh(
-        new THREE.BoxGeometry(1.7, 1.8, 1.7),
+        new THREE.BoxGeometry(
+            1.7,
+            1.8,
+            1.7
+        ),
         new THREE.MeshStandardMaterial({
-            color: 0x2196f3
+            color: type.baseColor
         })
     );
 
@@ -504,17 +716,25 @@ function createTower(x, z) {
 
     group.add(base);
 
-    // ROTATING TURRET
-    const turret = new THREE.Group();
+    /* Rotating turret */
+
+    const turret =
+        new THREE.Group();
 
     turret.position.y = 1.8;
 
     group.add(turret);
 
+    /* Turret top */
+
     const top = new THREE.Mesh(
-        new THREE.BoxGeometry(1.3, 0.9, 1.3),
+        new THREE.BoxGeometry(
+            1.3,
+            0.9,
+            1.3
+        ),
         new THREE.MeshStandardMaterial({
-            color: 0xffd600
+            color: type.topColor
         })
     );
 
@@ -523,23 +743,59 @@ function createTower(x, z) {
 
     turret.add(top);
 
-    // Barrel points forward along -Z
+    /* Barrel */
+
     const barrel = new THREE.Mesh(
-        new THREE.BoxGeometry(0.35, 0.35, 1.5),
+        new THREE.BoxGeometry(
+            type === TOWER_TYPES.cannon
+                ? 0.55
+                : 0.35,
+
+            type === TOWER_TYPES.cannon
+                ? 0.55
+                : 0.35,
+
+            type === TOWER_TYPES.cannon
+                ? 1.8
+                : 1.5
+        ),
+
         new THREE.MeshStandardMaterial({
-            color: 0x263238
+            color: type.barrelColor
         })
     );
 
     barrel.position.set(
         0,
         0.45,
-        -0.85
+        type === TOWER_TYPES.cannon
+            ? -0.95
+            : -0.85
     );
 
     barrel.castShadow = true;
 
     turret.add(barrel);
+
+    /* Magic crystal */
+
+    if (type === TOWER_TYPES.magic) {
+
+        const crystal = new THREE.Mesh(
+            new THREE.OctahedronGeometry(
+                0.35
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xe040fb,
+                emissive: 0x7b1fa2,
+                emissiveIntensity: 0.5
+            })
+        );
+
+        crystal.position.y = 1;
+
+        turret.add(crystal);
+    }
 
     group.position.set(
         x,
@@ -550,21 +806,37 @@ function createTower(x, z) {
     scene.add(group);
 
     return {
+
         mesh: group,
+
         turret: turret,
 
-        range: 7,
-        damage: 25,
-        fireRate: 0.7,
+        type: type,
+
+        range: type.range,
+
+        damage: type.damage,
+
+        fireRate: type.fireRate,
+
+        projectileSpeed:
+            type.projectileSpeed,
+
+        projectileSize:
+            type.projectileSize,
+
+        projectileColor:
+            type.projectileColor,
+
         cooldown: 0,
 
         target: null
     };
 }
 
-// ---------------------------------------------------------
-// START WAVE
-// ---------------------------------------------------------
+/* =========================================================
+   START WAVE
+   ========================================================= */
 
 function startWave() {
 
@@ -589,19 +861,21 @@ function startWave() {
     GAME.spawnTimer = 0;
 
     showMessage(
-        "Wave " + GAME.wave + " started!"
+        "Wave " +
+        GAME.wave +
+        " started!"
     );
 }
 
-// ---------------------------------------------------------
-// CREATE ENEMY
-// ---------------------------------------------------------
+/* =========================================================
+   ENEMY MODEL
+   ========================================================= */
 
 function createEnemyModel() {
 
-    const enemy = new THREE.Group();
+    const enemy =
+        new THREE.Group();
 
-    // Body
     const body = new THREE.Mesh(
         new THREE.CylinderGeometry(
             0.55,
@@ -619,7 +893,6 @@ function createEnemyModel() {
 
     enemy.add(body);
 
-    // Head
     const head = new THREE.Mesh(
         new THREE.SphereGeometry(
             0.55,
@@ -636,7 +909,6 @@ function createEnemyModel() {
 
     enemy.add(head);
 
-    // Eyes
     const eyeMaterial =
         new THREE.MeshStandardMaterial({
             color: 0x111111
@@ -676,7 +948,6 @@ function createEnemyModel() {
 
     enemy.add(rightEye);
 
-    // Arms
     const armMaterial =
         new THREE.MeshStandardMaterial({
             color: 0xe53935
@@ -722,7 +993,6 @@ function createEnemyModel() {
 
     enemy.add(rightArm);
 
-    // Legs
     const legMaterial =
         new THREE.MeshStandardMaterial({
             color: 0x8e24aa
@@ -767,13 +1037,14 @@ function createEnemyModel() {
     return enemy;
 }
 
-// ---------------------------------------------------------
-// SPAWN ENEMY
-// ---------------------------------------------------------
+/* =========================================================
+   SPAWN ENEMY
+   ========================================================= */
 
 function spawnEnemy() {
 
-    const mesh = createEnemyModel();
+    const mesh =
+        createEnemyModel();
 
     mesh.position.copy(
         pathPoints[0]
@@ -782,6 +1053,7 @@ function spawnEnemy() {
     scene.add(mesh);
 
     enemies.push({
+
         mesh: mesh,
 
         pathIndex: 0,
@@ -790,15 +1062,16 @@ function spawnEnemy() {
         maxHealth: 100,
 
         speed:
-            2.2 + GAME.wave * 0.05,
+            2.2 +
+            GAME.wave * 0.05,
 
         reward: 10
     });
 }
 
-// ---------------------------------------------------------
-// UPDATE ENEMIES
-// ---------------------------------------------------------
+/* =========================================================
+   UPDATE ENEMIES
+   ========================================================= */
 
 function updateEnemies(delta) {
 
@@ -815,7 +1088,9 @@ function updateEnemies(delta) {
             pathPoints.length - 1
         ) {
 
-            scene.remove(enemy.mesh);
+            scene.remove(
+                enemy.mesh
+            );
 
             enemies.splice(i, 1);
 
@@ -823,8 +1098,12 @@ function updateEnemies(delta) {
 
             updateUI();
 
-            if (GAME.baseHealth <= 0) {
+            if (
+                GAME.baseHealth <= 0
+            ) {
+
                 GAME.baseHealth = 0;
+
                 gameOver();
             }
 
@@ -878,8 +1157,9 @@ function updateEnemies(delta) {
                 delta;
         }
 
-        // Enemy faces the direction it is walking
-        if (direction.lengthSq() > 0) {
+        if (
+            direction.lengthSq() > 0
+        ) {
 
             enemy.mesh.rotation.y =
                 Math.atan2(
@@ -890,9 +1170,9 @@ function updateEnemies(delta) {
     }
 }
 
-// ---------------------------------------------------------
-// UPDATE TOWERS
-// ---------------------------------------------------------
+/* =========================================================
+   UPDATE TOWERS
+   ========================================================= */
 
 function updateTowers(delta) {
 
@@ -901,7 +1181,8 @@ function updateTowers(delta) {
         tower.cooldown -= delta;
 
         let closest = null;
-        let closestDistance = Infinity;
+        let closestDistance =
+            Infinity;
 
         for (const enemy of enemies) {
 
@@ -931,7 +1212,6 @@ function updateTowers(delta) {
 
         tower.target = closest;
 
-        // ROTATE TURRET TOWARD ENEMY
         if (closest) {
 
             const dx =
@@ -948,16 +1228,23 @@ function updateTowers(delta) {
                     -dz
                 );
 
-            // Smooth rotation
             let difference =
                 desiredRotation -
                 tower.turret.rotation.y;
 
-            while (difference > Math.PI)
-                difference -= Math.PI * 2;
+            while (
+                difference > Math.PI
+            ) {
+                difference -=
+                    Math.PI * 2;
+            }
 
-            while (difference < -Math.PI)
-                difference += Math.PI * 2;
+            while (
+                difference < -Math.PI
+            ) {
+                difference +=
+                    Math.PI * 2;
+            }
 
             tower.turret.rotation.y +=
                 difference *
@@ -966,8 +1253,9 @@ function updateTowers(delta) {
                     delta * 8
                 );
 
-            // Fire
-            if (tower.cooldown <= 0) {
+            if (
+                tower.cooldown <= 0
+            ) {
 
                 fireProjectile(
                     tower,
@@ -981,25 +1269,31 @@ function updateTowers(delta) {
     }
 }
 
-// ---------------------------------------------------------
-// PROJECTILE
-// ---------------------------------------------------------
+/* =========================================================
+   FIRE PROJECTILE
+   ========================================================= */
 
 function fireProjectile(
     tower,
     enemy
 ) {
 
-    const projectile = new THREE.Mesh(
-        new THREE.SphereGeometry(
-            0.25,
-            12,
-            12
-        ),
-        new THREE.MeshStandardMaterial({
-            color: 0xffff00
-        })
-    );
+    const projectile =
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                tower.projectileSize,
+                12,
+                12
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    tower.projectileColor,
+                emissive:
+                    tower.projectileColor,
+                emissiveIntensity:
+                    0.25
+            })
+        );
 
     projectile.position.set(
         tower.mesh.position.x,
@@ -1010,16 +1304,21 @@ function fireProjectile(
     scene.add(projectile);
 
     projectiles.push({
+
         mesh: projectile,
+
         target: enemy,
+
         damage: tower.damage,
-        speed: 14
+
+        speed:
+            tower.projectileSpeed
     });
 }
 
-// ---------------------------------------------------------
-// PROJECTILES
-// ---------------------------------------------------------
+/* =========================================================
+   UPDATE PROJECTILES
+   ========================================================= */
 
 function updateProjectiles(delta) {
 
@@ -1044,7 +1343,10 @@ function updateProjectiles(delta) {
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+            projectiles.splice(
+                i,
+                1
+            );
 
             continue;
         }
@@ -1071,10 +1373,18 @@ function updateProjectiles(delta) {
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+            projectiles.splice(
+                i,
+                1
+            );
 
-            if (target.health <= 0) {
-                destroyEnemy(target);
+            if (
+                target.health <= 0
+            ) {
+
+                destroyEnemy(
+                    target
+                );
             }
 
         } else {
@@ -1083,16 +1393,17 @@ function updateProjectiles(delta) {
 
             projectile.mesh.position.add(
                 direction.multiplyScalar(
-                    projectile.speed * delta
+                    projectile.speed *
+                    delta
                 )
             );
         }
     }
 }
 
-// ---------------------------------------------------------
-// DESTROY ENEMY
-// ---------------------------------------------------------
+/* =========================================================
+   DESTROY ENEMY
+   ========================================================= */
 
 function destroyEnemy(enemy) {
 
@@ -1102,18 +1413,24 @@ function destroyEnemy(enemy) {
     if (index === -1)
         return;
 
-    scene.remove(enemy.mesh);
+    scene.remove(
+        enemy.mesh
+    );
 
-    enemies.splice(index, 1);
+    enemies.splice(
+        index,
+        1
+    );
 
-    GAME.coins += enemy.reward;
+    GAME.coins +=
+        enemy.reward;
 
     updateUI();
 }
 
-// ---------------------------------------------------------
-// WAVE UPDATE
-// ---------------------------------------------------------
+/* =========================================================
+   WAVE UPDATE
+   ========================================================= */
 
 function updateWave(delta) {
 
@@ -1127,7 +1444,9 @@ function updateWave(delta) {
         GAME.enemiesToSpawn
     ) {
 
-        if (GAME.spawnTimer <= 0) {
+        if (
+            GAME.spawnTimer <= 0
+        ) {
 
             spawnEnemy();
 
@@ -1152,9 +1471,9 @@ function updateWave(delta) {
     }
 }
 
-// ---------------------------------------------------------
-// FINISH WAVE
-// ---------------------------------------------------------
+/* =========================================================
+   FINISH WAVE
+   ========================================================= */
 
 function finishWave() {
 
@@ -1170,9 +1489,9 @@ function finishWave() {
     );
 }
 
-// ---------------------------------------------------------
-// GAME OVER
-// ---------------------------------------------------------
+/* =========================================================
+   GAME OVER
+   ========================================================= */
 
 function gameOver() {
 
@@ -1182,6 +1501,15 @@ function gameOver() {
     GAME.gameOver = true;
     GAME.waveRunning = false;
     GAME.towerMode = false;
+    GAME.selectedTower = null;
+
+    const menu =
+        document.getElementById(
+            "towerMenu"
+        );
+
+    if (menu)
+        menu.remove();
 
     document.getElementById(
         "towerButton"
@@ -1192,39 +1520,46 @@ function gameOver() {
     );
 }
 
-// ---------------------------------------------------------
-// UI
-// ---------------------------------------------------------
+/* =========================================================
+   UI
+   ========================================================= */
 
 function updateUI() {
 
     document.getElementById(
         "coins"
-    ).textContent = GAME.coins;
+    ).textContent =
+        GAME.coins;
 
     document.getElementById(
         "baseHealth"
-    ).textContent = GAME.baseHealth;
+    ).textContent =
+        GAME.baseHealth;
 
     document.getElementById(
         "wave"
-    ).textContent = GAME.wave;
+    ).textContent =
+        GAME.wave;
 }
 
-// ---------------------------------------------------------
-// MESSAGE
-// ---------------------------------------------------------
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
 let messageTimer = null;
 
 function showMessage(text) {
 
     const message =
-        document.getElementById("message");
+        document.getElementById(
+            "message"
+        );
 
     message.textContent = text;
 
-    clearTimeout(messageTimer);
+    clearTimeout(
+        messageTimer
+    );
 
     if (text) {
 
@@ -1238,9 +1573,9 @@ function showMessage(text) {
     }
 }
 
-// ---------------------------------------------------------
-// RESIZE
-// ---------------------------------------------------------
+/* =========================================================
+   RESIZE
+   ========================================================= */
 
 function handleResize() {
 
@@ -1256,15 +1591,18 @@ function handleResize() {
     );
 }
 
-// ---------------------------------------------------------
-// MAIN LOOP
-// ---------------------------------------------------------
+/* =========================================================
+   MAIN LOOP
+   ========================================================= */
 
-let lastTime = performance.now();
+let lastTime =
+    performance.now();
 
 function animate() {
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+        animate
+    );
 
     const now =
         performance.now();
@@ -1288,8 +1626,8 @@ function animate() {
     );
 }
 
-// ---------------------------------------------------------
-// START
-// ---------------------------------------------------------
+/* =========================================================
+   START
+   ========================================================= */
 
 startGame();
