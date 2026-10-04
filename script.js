@@ -1,13 +1,9 @@
 "use strict";
 
 /* =========================================================
-   GREAK TOWER V0.3
-   Enemy Variety + Health Bars + Bosses
+   GREAK TOWER V0.4
+   Tower Upgrades + Selection + Selling
    ========================================================= */
-
-/* =========================
-   GAME STATE
-========================= */
 
 const GAME = {
     coins: 100,
@@ -22,13 +18,14 @@ const GAME = {
     spawnTimer: 0,
 
     towerMode: false,
+    selectedTowerType: null,
     selectedTower: null
 };
 
 
-/* =========================
+/* =========================================================
    THREE.JS
-========================= */
+========================================================= */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
@@ -47,42 +44,61 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-
-document.getElementById("game").appendChild(renderer.domElement);
-
-
-/* =========================
-   LIGHTING
-========================= */
-
-const ambientLight = new THREE.AmbientLight(
-    0xffffff,
-    0.7
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
 );
 
-scene.add(ambientLight);
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.shadowMap.enabled = true;
+
+document
+    .getElementById("game")
+    .appendChild(renderer.domElement);
+
+
+/* =========================================================
+   LIGHTING
+========================================================= */
+
+scene.add(
+    new THREE.AmbientLight(
+        0xffffff,
+        0.7
+    )
+);
 
 const sun = new THREE.DirectionalLight(
     0xffffff,
     1.1
 );
 
-sun.position.set(10, 25, 10);
+sun.position.set(
+    10,
+    25,
+    10
+);
+
 sun.castShadow = true;
 
 scene.add(sun);
 
 
-/* =========================
-   GAME ARRAYS
-========================= */
+/* =========================================================
+   ARRAYS
+========================================================= */
 
 const towers = [];
 const enemies = [];
 const projectiles = [];
+
+
+/* =========================================================
+   PATH
+========================================================= */
 
 const pathPoints = [
     new THREE.Vector3(-15, 0, -9),
@@ -96,61 +112,57 @@ const pathPoints = [
 ];
 
 
-/* =========================
+/* =========================================================
    ENEMY TYPES
-========================= */
+========================================================= */
 
 const ENEMY_TYPES = {
 
     basic: {
         name: "Basic",
-        emoji: "👾",
         health: 100,
         speed: 2.2,
         reward: 10,
         scale: 1,
-        bodyColor: 0xe53935,
-        headColor: 0xff7043
+        body: 0xe53935,
+        head: 0xff7043
     },
 
     fast: {
         name: "Fast",
-        emoji: "⚡",
         health: 60,
         speed: 4.2,
         reward: 15,
         scale: 0.82,
-        bodyColor: 0x00a86b,
-        headColor: 0x00e676
+        body: 0x00a86b,
+        head: 0x00e676
     },
 
     tank: {
         name: "Tank",
-        emoji: "🛡️",
         health: 300,
         speed: 1.15,
         reward: 30,
         scale: 1.35,
-        bodyColor: 0x4a148c,
-        headColor: 0x7b1fa2
+        body: 0x4a148c,
+        head: 0x7b1fa2
     },
 
     boss: {
         name: "Boss",
-        emoji: "👑",
         health: 1000,
         speed: 0.85,
         reward: 100,
         scale: 1.8,
-        bodyColor: 0x7f0000,
-        headColor: 0xd32f2f
+        body: 0x7f0000,
+        head: 0xd32f2f
     }
 };
 
 
-/* =========================
+/* =========================================================
    TOWER TYPES
-========================= */
+========================================================= */
 
 const TOWER_TYPES = {
 
@@ -166,10 +178,10 @@ const TOWER_TYPES = {
         projectileSpeed: 18,
         projectileSize: 0.18,
 
-        baseColor: 0x2196f3,
-        topColor: 0x4fc3f7,
-        barrelColor: 0x263238,
-        projectileColor: 0xffeb3b
+        base: 0x2196f3,
+        top: 0x4fc3f7,
+        barrel: 0x263238,
+        projectile: 0xffeb3b
     },
 
     cannon: {
@@ -184,10 +196,10 @@ const TOWER_TYPES = {
         projectileSpeed: 11,
         projectileSize: 0.32,
 
-        baseColor: 0x424242,
-        topColor: 0x757575,
-        barrelColor: 0x212121,
-        projectileColor: 0xff5722
+        base: 0x424242,
+        top: 0x757575,
+        barrel: 0x212121,
+        projectile: 0xff5722
     },
 
     magic: {
@@ -202,40 +214,101 @@ const TOWER_TYPES = {
         projectileSpeed: 15,
         projectileSize: 0.25,
 
-        baseColor: 0x673ab7,
-        topColor: 0xab47bc,
-        barrelColor: 0x7e57c2,
-        projectileColor: 0xe040fb
+        base: 0x673ab7,
+        top: 0xab47bc,
+        barrel: 0x7e57c2,
+        projectile: 0xe040fb
     }
 };
 
 
-/* =========================
+/* =========================================================
+   UPGRADE SYSTEM
+========================================================= */
+
+const UPGRADE_COSTS = {
+
+    archer: [
+        0,
+        75,
+        125
+    ],
+
+    cannon: [
+        0,
+        125,
+        200
+    ],
+
+    magic: [
+        0,
+        175,
+        275
+    ]
+};
+
+
+const UPGRADE_MULTIPLIERS = {
+
+    1: {
+        damage: 1,
+        range: 1,
+        fireRate: 1
+    },
+
+    2: {
+        damage: 1.5,
+        range: 1.15,
+        fireRate: 0.82
+    },
+
+    3: {
+        damage: 2.2,
+        range: 1.3,
+        fireRate: 0.68
+    }
+};
+
+
+/* =========================================================
    GROUND
-========================= */
+========================================================= */
 
 const ground = new THREE.Mesh(
-    new THREE.BoxGeometry(34, 1, 26),
+
+    new THREE.BoxGeometry(
+        34,
+        1,
+        26
+    ),
+
     new THREE.MeshStandardMaterial({
         color: 0x4caf50
     })
 );
 
 ground.position.y = -0.5;
+
 ground.receiveShadow = true;
 
 scene.add(ground);
 
 
-/* =========================
+/* =========================================================
    PATH
-========================= */
+========================================================= */
 
-const pathMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd7b98e
-});
+const pathMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0xd7b98e
+    });
 
-for (let i = 0; i < pathPoints.length - 1; i++) {
+
+for (
+    let i = 0;
+    i < pathPoints.length - 1;
+    i++
+) {
 
     const a = pathPoints[i];
     const b = pathPoints[i + 1];
@@ -243,14 +316,14 @@ for (let i = 0; i < pathPoints.length - 1; i++) {
     const dx = b.x - a.x;
     const dz = b.z - a.z;
 
-    const length = Math.sqrt(dx * dx + dz * dz);
-
     const path = new THREE.Mesh(
+
         new THREE.BoxGeometry(
             Math.abs(dx) || 3.5,
             0.15,
             Math.abs(dz) || 3.5
         ),
+
         pathMaterial
     );
 
@@ -260,19 +333,31 @@ for (let i = 0; i < pathPoints.length - 1; i++) {
         (a.z + b.z) / 2
     );
 
-    if (Math.abs(dx) > Math.abs(dz)) {
-        path.scale.z = 3.5 / path.geometry.parameters.depth;
+
+    if (
+        Math.abs(dx) >
+        Math.abs(dz)
+    ) {
+
+        path.scale.z =
+            3.5 /
+            path.geometry.parameters.depth;
+
     } else {
-        path.scale.x = 3.5 / path.geometry.parameters.width;
+
+        path.scale.x =
+            3.5 /
+            path.geometry.parameters.width;
     }
+
 
     scene.add(path);
 }
 
 
-/* =========================
+/* =========================================================
    TREES
-========================= */
+========================================================= */
 
 const treePositions = [
     [-15, -3],
@@ -287,109 +372,191 @@ const treePositions = [
     [5, 11]
 ];
 
+
 function createTree(x, z) {
 
-    const tree = new THREE.Group();
+    const tree =
+        new THREE.Group();
 
-    const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.35, 0.45, 2, 6),
-        new THREE.MeshStandardMaterial({
-            color: 0x795548
-        })
-    );
+
+    const trunk =
+        new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                0.35,
+                0.45,
+                2,
+                6
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: 0x795548
+            })
+        );
 
     trunk.position.y = 1;
 
-    const leaves = new THREE.Mesh(
-        new THREE.ConeGeometry(1.5, 3, 7),
-        new THREE.MeshStandardMaterial({
-            color: 0x1b5e20
-        })
-    );
+
+    const leaves =
+        new THREE.Mesh(
+
+            new THREE.ConeGeometry(
+                1.5,
+                3,
+                7
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: 0x1b5e20
+            })
+        );
 
     leaves.position.y = 3;
 
-    tree.add(trunk);
-    tree.add(leaves);
 
-    tree.position.set(x, 0, z);
+    tree.add(
+        trunk,
+        leaves
+    );
 
-    trunk.castShadow = true;
-    leaves.castShadow = true;
+    tree.position.set(
+        x,
+        0,
+        z
+    );
+
 
     scene.add(tree);
 }
 
-treePositions.forEach(pos => {
-    createTree(pos[0], pos[1]);
-});
 
+treePositions.forEach(
+    position => {
 
-/* =========================
-   BASE
-========================= */
+        createTree(
+            position[0],
+            position[1]
+        );
 
-const base = new THREE.Group();
-
-const baseBody = new THREE.Mesh(
-    new THREE.BoxGeometry(3, 3, 3),
-    new THREE.MeshStandardMaterial({
-        color: 0x673ab7
-    })
+    }
 );
+
+
+/* =========================================================
+   BASE
+========================================================= */
+
+const base =
+    new THREE.Group();
+
+
+const baseBody =
+    new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            3,
+            3,
+            3
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x673ab7
+        })
+    );
 
 baseBody.position.y = 1.5;
 
-const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(2.2, 2.5, 4),
-    new THREE.MeshStandardMaterial({
-        color: 0xff9800
-    })
-);
+
+const roof =
+    new THREE.Mesh(
+
+        new THREE.ConeGeometry(
+            2.2,
+            2.5,
+            4
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0xff9800
+        })
+    );
 
 roof.position.y = 4.2;
-roof.rotation.y = Math.PI / 4;
+roof.rotation.y =
+    Math.PI / 4;
 
-base.add(baseBody);
-base.add(roof);
 
-base.position.set(15, 0, 9);
+base.add(
+    baseBody,
+    roof
+);
 
-baseBody.castShadow = true;
-roof.castShadow = true;
+base.position.set(
+    15,
+    0,
+    9
+);
 
 scene.add(base);
 
 
 /* =========================================================
-   HEALTH BAR SYSTEM
+   HEALTH BARS
 ========================================================= */
 
-function createHealthBar(width = 1.7, height = 0.2) {
+function createHealthBar(
+    width = 1.7,
+    height = 0.2
+) {
 
-    const group = new THREE.Group();
+    const group =
+        new THREE.Group();
 
-    const background = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, 0.08),
-        new THREE.MeshBasicMaterial({
-            color: 0x222222
-        })
-    );
 
-    const fill = new THREE.Mesh(
-        new THREE.BoxGeometry(width - 0.04, height - 0.04, 0.1),
-        new THREE.MeshBasicMaterial({
-            color: 0x32cd32
-        })
-    );
+    const background =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                width,
+                height,
+                0.08
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color: 0x222222
+            })
+        );
+
+
+    const fill =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                width - 0.04,
+                height - 0.04,
+                0.1
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color: 0x32cd32
+            })
+        );
+
 
     fill.position.z = 0.05;
 
-    group.add(background);
-    group.add(fill);
 
-    group.userData.fill = fill;
-    group.userData.width = width - 0.04;
+    group.add(
+        background,
+        fill
+    );
+
+
+    group.userData = {
+        fill,
+        width: width - 0.04
+    };
+
 
     return group;
 }
@@ -397,197 +564,301 @@ function createHealthBar(width = 1.7, height = 0.2) {
 
 function updateHealthBar(enemy) {
 
-    if (!enemy.healthBar) return;
+    if (!enemy.healthBar) {
+        return;
+    }
 
-    const ratio = Math.max(
-        0,
-        Math.min(1, enemy.health / enemy.maxHealth)
-    );
 
-    const fill = enemy.healthBar.userData.fill;
-    const width = enemy.healthBar.userData.width;
+    const ratio =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                enemy.health /
+                enemy.maxHealth
+            )
+        );
 
-    fill.scale.x = ratio;
+
+    const fill =
+        enemy.healthBar.userData.fill;
+
+
+    const width =
+        enemy.healthBar.userData.width;
+
+
+    fill.scale.x =
+        ratio;
+
 
     fill.position.x =
         -(width * (1 - ratio)) / 2;
 
+
     if (ratio > 0.5) {
-        fill.material.color.set(0x32cd32);
+
+        fill.material.color.set(
+            0x32cd32
+        );
+
     } else if (ratio > 0.25) {
-        fill.material.color.set(0xffd600);
+
+        fill.material.color.set(
+            0xffd600
+        );
+
     } else {
-        fill.material.color.set(0xf44336);
+
+        fill.material.color.set(
+            0xf44336
+        );
     }
 
-    enemy.healthBar.lookAt(camera.position);
-}
-
-
-function updateHealthBarPosition(enemy) {
-
-    if (!enemy.healthBar) return;
 
     enemy.healthBar.position.set(
+
         enemy.mesh.position.x,
-        enemy.mesh.position.y + enemy.barHeight,
+
+        enemy.mesh.position.y +
+            enemy.barHeight,
+
         enemy.mesh.position.z
     );
 
-    enemy.healthBar.lookAt(camera.position);
+
+    enemy.healthBar.lookAt(
+        camera.position
+    );
 }
 
 
 /* =========================================================
-   BOSS UI
+   BOSS BAR
 ========================================================= */
 
 let bossBar = null;
-let bossBarFill = null;
-let bossBarName = null;
+let bossFill = null;
+let bossName = null;
+
 
 function createBossUI() {
 
-    if (bossBar) return;
+    if (bossBar) {
+        return;
+    }
 
-    bossBar = document.createElement("div");
 
-    bossBar.style.position = "fixed";
-    bossBar.style.top = "75px";
-    bossBar.style.left = "50%";
-    bossBar.style.transform = "translateX(-50%)";
-    bossBar.style.width = "min(500px, 80vw)";
-    bossBar.style.padding = "8px";
-    bossBar.style.background = "rgba(0,0,0,0.75)";
-    bossBar.style.border = "2px solid #ffca28";
-    bossBar.style.borderRadius = "10px";
-    bossBar.style.zIndex = "20";
-    bossBar.style.display = "none";
-    bossBar.style.boxSizing = "border-box";
-    bossBar.style.textAlign = "center";
-    bossBar.style.fontFamily = "Arial, sans-serif";
+    bossBar =
+        document.createElement("div");
 
-    bossBarName = document.createElement("div");
 
-    bossBarName.textContent = "👑 BOSS";
+    Object.assign(
+        bossBar.style,
+        {
+            position: "fixed",
+            top: "75px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "min(500px, 80vw)",
+            padding: "8px",
+            background: "rgba(0,0,0,0.75)",
+            border: "2px solid #ffca28",
+            borderRadius: "10px",
+            zIndex: "20",
+            display: "none",
+            boxSizing: "border-box",
+            textAlign: "center",
+            fontFamily: "Arial, sans-serif"
+        }
+    );
 
-    bossBarName.style.color = "#ffd54f";
-    bossBarName.style.fontWeight = "bold";
-    bossBarName.style.marginBottom = "5px";
 
-    const outer = document.createElement("div");
+    bossName =
+        document.createElement("div");
 
-    outer.style.width = "100%";
-    outer.style.height = "18px";
-    outer.style.background = "#330000";
-    outer.style.borderRadius = "9px";
-    outer.style.overflow = "hidden";
 
-    bossBarFill = document.createElement("div");
+    bossName.textContent =
+        "👑 BOSS";
 
-    bossBarFill.style.width = "100%";
-    bossBarFill.style.height = "100%";
-    bossBarFill.style.background = "#e53935";
-    bossBarFill.style.transition = "width 0.1s";
 
-    outer.appendChild(bossBarFill);
+    Object.assign(
+        bossName.style,
+        {
+            color: "#ffd54f",
+            fontWeight: "bold",
+            marginBottom: "5px"
+        }
+    );
 
-    bossBar.appendChild(bossBarName);
-    bossBar.appendChild(outer);
 
-    document.body.appendChild(bossBar);
+    const outer =
+        document.createElement("div");
+
+
+    Object.assign(
+        outer.style,
+        {
+            height: "18px",
+            background: "#330000",
+            borderRadius: "9px",
+            overflow: "hidden"
+        }
+    );
+
+
+    bossFill =
+        document.createElement("div");
+
+
+    Object.assign(
+        bossFill.style,
+        {
+            width: "100%",
+            height: "100%",
+            background: "#e53935"
+        }
+    );
+
+
+    outer.appendChild(
+        bossFill
+    );
+
+
+    bossBar.append(
+        bossName,
+        outer
+    );
+
+
+    document.body.appendChild(
+        bossBar
+    );
 }
 
 
-function showBossBar(enemy) {
+function showBoss(enemy) {
 
     createBossUI();
 
-    bossBar.style.display = "block";
+    bossBar.style.display =
+        "block";
 
-    updateBossBar(enemy);
+    updateBoss(enemy);
 }
 
 
-function updateBossBar(enemy) {
+function updateBoss(enemy) {
 
-    if (!bossBar || !bossBarFill) return;
+    if (!bossFill) {
+        return;
+    }
 
-    const ratio = Math.max(
-        0,
-        Math.min(1, enemy.health / enemy.maxHealth)
-    );
 
-    bossBarFill.style.width =
+    const ratio =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                enemy.health /
+                enemy.maxHealth
+            )
+        );
+
+
+    bossFill.style.width =
         `${ratio * 100}%`;
 
-    bossBarName.textContent =
-        `👑 BOSS — ${Math.max(0, Math.ceil(enemy.health))} HP`;
+
+    bossName.textContent =
+        `👑 BOSS — ${Math.max(
+            0,
+            Math.ceil(enemy.health)
+        )} HP`;
 }
 
 
-function hideBossBar() {
+function hideBoss() {
 
     if (bossBar) {
-        bossBar.style.display = "none";
+        bossBar.style.display =
+            "none";
     }
 }
 
 
-/* =========================
+/* =========================================================
    ENEMY MODEL
-========================= */
+========================================================= */
 
-function createEnemyModel(typeKey) {
+function createEnemyModel(
+    typeKey
+) {
 
-    const type = ENEMY_TYPES[typeKey];
-
-    const enemy = new THREE.Group();
-
-    /* Body */
-
-    const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            0.65,
-            0.75,
-            1.4,
-            8
-        ),
-        new THREE.MeshStandardMaterial({
-            color: type.bodyColor
-        })
-    );
-
-    body.position.y = 1.25;
+    const type =
+        ENEMY_TYPES[typeKey];
 
 
-    /* Head */
-
-    const head = new THREE.Mesh(
-        new THREE.SphereGeometry(
-            0.55,
-            10,
-            10
-        ),
-        new THREE.MeshStandardMaterial({
-            color: type.headColor
-        })
-    );
-
-    head.position.y = 2.25;
+    const enemy =
+        new THREE.Group();
 
 
-    /* Eyes */
+    const body =
+        new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                0.65,
+                0.75,
+                1.4,
+                8
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: type.body
+            })
+        );
+
+    body.position.y =
+        1.25;
+
+
+    const head =
+        new THREE.Mesh(
+
+            new THREE.SphereGeometry(
+                0.55,
+                10,
+                10
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: type.head
+            })
+        );
+
+    head.position.y =
+        2.25;
+
 
     const eyeMaterial =
         new THREE.MeshStandardMaterial({
             color: 0x111111
         });
 
-    const leftEye = new THREE.Mesh(
-        new THREE.BoxGeometry(0.13, 0.18, 0.08),
-        eyeMaterial
-    );
+
+    const leftEye =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                0.13,
+                0.18,
+                0.08
+            ),
+
+            eyeMaterial
+        );
+
 
     leftEye.position.set(
         -0.2,
@@ -595,12 +866,14 @@ function createEnemyModel(typeKey) {
         -0.48
     );
 
-    const rightEye = leftEye.clone();
 
-    rightEye.position.x = 0.2;
+    const rightEye =
+        leftEye.clone();
 
 
-    /* Arms */
+    rightEye.position.x =
+        0.2;
+
 
     const armGeometry =
         new THREE.CylinderGeometry(
@@ -610,12 +883,15 @@ function createEnemyModel(typeKey) {
             6
         );
 
-    const leftArm = new THREE.Mesh(
-        armGeometry,
-        new THREE.MeshStandardMaterial({
-            color: type.bodyColor
-        })
-    );
+
+    const leftArm =
+        new THREE.Mesh(
+            armGeometry,
+            new THREE.MeshStandardMaterial({
+                color: type.body
+            })
+        );
+
 
     leftArm.position.set(
         -0.8,
@@ -623,16 +899,22 @@ function createEnemyModel(typeKey) {
         0
     );
 
-    leftArm.rotation.z = -0.25;
+
+    leftArm.rotation.z =
+        -0.25;
 
 
-    const rightArm = leftArm.clone();
-
-    rightArm.position.x = 0.8;
-    rightArm.rotation.z = 0.25;
+    const rightArm =
+        leftArm.clone();
 
 
-    /* Legs */
+    rightArm.position.x =
+        0.8;
+
+
+    rightArm.rotation.z =
+        0.25;
+
 
     const legGeometry =
         new THREE.CylinderGeometry(
@@ -642,12 +924,15 @@ function createEnemyModel(typeKey) {
             6
         );
 
-    const leftLeg = new THREE.Mesh(
-        legGeometry,
-        new THREE.MeshStandardMaterial({
-            color: 0x263238
-        })
-    );
+
+    const leftLeg =
+        new THREE.Mesh(
+            legGeometry,
+            new THREE.MeshStandardMaterial({
+                color: 0x263238
+            })
+        );
+
 
     leftLeg.position.set(
         -0.3,
@@ -655,9 +940,13 @@ function createEnemyModel(typeKey) {
         0
     );
 
-    const rightLeg = leftLeg.clone();
 
-    rightLeg.position.x = 0.3;
+    const rightLeg =
+        leftLeg.clone();
+
+
+    rightLeg.position.x =
+        0.3;
 
 
     enemy.add(
@@ -672,126 +961,139 @@ function createEnemyModel(typeKey) {
     );
 
 
-    /* Fast enemy special marker */
+    /* FAST */
 
     if (typeKey === "fast") {
 
-        const speedFin = new THREE.Mesh(
-            new THREE.ConeGeometry(
-                0.25,
-                0.7,
-                5
-            ),
-            new THREE.MeshStandardMaterial({
-                color: 0x00ffff
-            })
-        );
+        const fin =
+            new THREE.Mesh(
 
-        speedFin.rotation.z = Math.PI / 2;
-        speedFin.position.set(
-            0,
-            1.7,
-            0
-        );
+                new THREE.ConeGeometry(
+                    0.25,
+                    0.7,
+                    5
+                ),
 
-        enemy.add(speedFin);
+                new THREE.MeshStandardMaterial({
+                    color: 0x00ffff
+                })
+            );
+
+
+        fin.rotation.z =
+            Math.PI / 2;
+
+        fin.position.y =
+            1.7;
+
+
+        enemy.add(fin);
     }
 
 
-    /* Tank armor */
+    /* TANK */
 
     if (typeKey === "tank") {
 
-        const armor = new THREE.Mesh(
-            new THREE.BoxGeometry(
-                1.8,
-                1.4,
-                1.8
-            ),
-            new THREE.MeshStandardMaterial({
-                color: 0x311b92,
-                transparent: true,
-                opacity: 0.75
-            })
-        );
+        const armor =
+            new THREE.Mesh(
 
-        armor.position.y = 1.35;
+                new THREE.BoxGeometry(
+                    1.8,
+                    1.4,
+                    1.8
+                ),
+
+                new THREE.MeshStandardMaterial({
+                    color: 0x311b92,
+                    transparent: true,
+                    opacity: 0.75
+                })
+            );
+
+
+        armor.position.y =
+            1.35;
+
 
         enemy.add(armor);
     }
 
 
-    /* Boss crown */
+    /* BOSS */
 
     if (typeKey === "boss") {
 
-        const crown = new THREE.Mesh(
-            new THREE.ConeGeometry(
-                0.7,
-                0.8,
-                5
-            ),
-            new THREE.MeshStandardMaterial({
-                color: 0xffd600,
-                emissive: 0x8a6500
-            })
-        );
+        const crown =
+            new THREE.Mesh(
 
-        crown.position.y = 3.05;
+                new THREE.ConeGeometry(
+                    0.7,
+                    0.8,
+                    5
+                ),
+
+                new THREE.MeshStandardMaterial({
+                    color: 0xffd600,
+                    emissive: 0x8a6500
+                })
+            );
+
+
+        crown.position.y =
+            3.05;
+
 
         enemy.add(crown);
-
-        const bossGem = new THREE.Mesh(
-            new THREE.OctahedronGeometry(0.18),
-            new THREE.MeshStandardMaterial({
-                color: 0x00e5ff,
-                emissive: 0x0088aa
-            })
-        );
-
-        bossGem.position.set(
-            0,
-            2.3,
-            -0.55
-        );
-
-        enemy.add(bossGem);
     }
 
 
-    enemy.scale.setScalar(type.scale);
+    enemy.scale.setScalar(
+        type.scale
+    );
 
-    enemy.traverse(object => {
 
-        if (object.isMesh) {
-            object.castShadow = true;
+    enemy.traverse(
+        object => {
+
+            if (object.isMesh) {
+                object.castShadow = true;
+            }
+
         }
+    );
 
-    });
 
     return enemy;
 }
 
 
 /* =========================================================
-   WAVE GENERATION
+   WAVES
 ========================================================= */
 
 function buildWaveQueue(wave) {
 
     const queue = [];
 
-    const normalCount =
+    const amount =
         4 + wave * 2;
 
-    for (let i = 0; i < normalCount; i++) {
+
+    for (
+        let i = 0;
+        i < amount;
+        i++
+    ) {
 
         if (wave >= 4) {
 
             if (i % 5 === 0) {
                 queue.push("tank");
+
             } else if (i % 3 === 0) {
                 queue.push("fast");
+
             } else {
                 queue.push("basic");
             }
@@ -800,8 +1102,10 @@ function buildWaveQueue(wave) {
 
             if (i % 3 === 0) {
                 queue.push("tank");
+
             } else if (i % 2 === 0) {
                 queue.push("fast");
+
             } else {
                 queue.push("basic");
             }
@@ -810,6 +1114,7 @@ function buildWaveQueue(wave) {
 
             if (i % 3 === 0) {
                 queue.push("fast");
+
             } else {
                 queue.push("basic");
             }
@@ -821,11 +1126,10 @@ function buildWaveQueue(wave) {
     }
 
 
-    /* Boss every 5 waves */
-
     if (wave % 5 === 0) {
         queue.push("boss");
     }
+
 
     return queue;
 }
@@ -835,30 +1139,46 @@ function buildWaveQueue(wave) {
    CREATE ENEMY
 ========================================================= */
 
-function createEnemy(typeKey) {
+function createEnemy(
+    typeKey
+) {
 
-    const type = ENEMY_TYPES[typeKey];
+    const type =
+        ENEMY_TYPES[typeKey];
 
-    const mesh = createEnemyModel(typeKey);
 
-    const start = pathPoints[0];
+    const mesh =
+        createEnemyModel(
+            typeKey
+        );
 
-    mesh.position.set(
-        start.x,
-        0,
-        start.z
+
+    mesh.position.copy(
+        pathPoints[0]
     );
+
+
+    mesh.position.y = 0;
+
 
     scene.add(mesh);
 
 
     const healthBar =
         createHealthBar(
-            typeKey === "boss" ? 2.7 : 1.7,
-            typeKey === "boss" ? 0.28 : 0.2
+            typeKey === "boss"
+                ? 2.7
+                : 1.7,
+
+            typeKey === "boss"
+                ? 0.28
+                : 0.2
         );
 
-    scene.add(healthBar);
+
+    scene.add(
+        healthBar
+    );
 
 
     const enemy = {
@@ -868,6 +1188,7 @@ function createEnemy(typeKey) {
         type: typeKey,
 
         health: type.health,
+
         maxHealth: type.health,
 
         speed:
@@ -875,7 +1196,10 @@ function createEnemy(typeKey) {
             (
                 typeKey === "boss"
                     ? 0
-                    : Math.min((GAME.wave - 1) * 0.03, 0.6)
+                    : Math.min(
+                        (GAME.wave - 1) * 0.03,
+                        0.6
+                    )
             ),
 
         reward: type.reward,
@@ -891,14 +1215,18 @@ function createEnemy(typeKey) {
     };
 
 
-    enemies.push(enemy);
+    enemies.push(
+        enemy
+    );
 
-    updateHealthBarPosition(enemy);
-    updateHealthBar(enemy);
+
+    updateHealthBar(
+        enemy
+    );
 
 
     if (typeKey === "boss") {
-        showBossBar(enemy);
+        showBoss(enemy);
     }
 }
 
@@ -909,18 +1237,29 @@ function createEnemy(typeKey) {
 
 function startWave() {
 
-    if (GAME.waveRunning || GAME.gameOver) {
+    if (
+        GAME.waveRunning ||
+        GAME.gameOver
+    ) {
         return;
     }
 
+
     GAME.spawnQueue =
-        buildWaveQueue(GAME.wave);
+        buildWaveQueue(
+            GAME.wave
+        );
+
 
     GAME.spawnIndex = 0;
+
     GAME.spawnTimer = 0;
+
     GAME.waveRunning = true;
 
+
     updateUI();
+
 
     showMessage(
         `🌊 Wave ${GAME.wave} started!`
@@ -929,14 +1268,19 @@ function startWave() {
 
 
 /* =========================================================
-   SPAWN SYSTEM
+   SPAWNING
 ========================================================= */
 
-function updateSpawning(delta) {
+function updateSpawning(
+    delta
+) {
 
-    if (!GAME.waveRunning) {
+    if (
+        !GAME.waveRunning
+    ) {
         return;
     }
+
 
     if (
         GAME.spawnIndex >=
@@ -945,33 +1289,37 @@ function updateSpawning(delta) {
         return;
     }
 
-    GAME.spawnTimer -= delta;
 
-    if (GAME.spawnTimer <= 0) {
+    GAME.spawnTimer -=
+        delta;
+
+
+    if (
+        GAME.spawnTimer <= 0
+    ) {
 
         const type =
             GAME.spawnQueue[
                 GAME.spawnIndex
             ];
 
-        createEnemy(type);
 
         GAME.spawnIndex++;
 
-        /*
-         * Boss gets a small dramatic delay.
-         */
 
-        if (type === "boss") {
-            GAME.spawnTimer = 2;
-        } else {
-            GAME.spawnTimer =
-                Math.max(
+        createEnemy(
+            type
+        );
+
+
+        GAME.spawnTimer =
+            type === "boss"
+                ? 2
+                : Math.max(
                     0.35,
                     0.8 -
                     GAME.wave * 0.015
                 );
-        }
     }
 }
 
@@ -980,44 +1328,56 @@ function updateSpawning(delta) {
    ENEMY MOVEMENT
 ========================================================= */
 
-function updateEnemies(delta) {
+function updateEnemies(
+    delta
+) {
 
-    for (let i = enemies.length - 1; i >= 0; i--) {
+    for (
+        let i = enemies.length - 1;
+        i >= 0;
+        i--
+    ) {
 
-        const enemy = enemies[i];
+        const enemy =
+            enemies[i];
 
-        if (!enemy.mesh.parent) {
-            continue;
-        }
 
         const target =
             pathPoints[
                 enemy.pathIndex + 1
             ];
 
+
         if (!target) {
 
-            reachBase(enemy, i);
+            reachBase(
+                enemy,
+                i
+            );
 
             continue;
         }
 
 
-        const current =
-            enemy.mesh.position;
-
         const direction =
             new THREE.Vector3(
-                target.x - current.x,
+                target.x -
+                    enemy.mesh.position.x,
+
                 0,
-                target.z - current.z
+
+                target.z -
+                    enemy.mesh.position.z
             );
+
 
         const distance =
             direction.length();
 
 
-        if (distance < 0.2) {
+        if (
+            distance < 0.2
+        ) {
 
             enemy.pathIndex++;
 
@@ -1027,178 +1387,293 @@ function updateEnemies(delta) {
 
         direction.normalize();
 
-        current.x +=
+
+        enemy.mesh.position.x +=
             direction.x *
             enemy.speed *
             delta;
 
-        current.z +=
+
+        enemy.mesh.position.z +=
             direction.z *
             enemy.speed *
             delta;
 
 
-        const angle =
+        enemy.mesh.rotation.y =
             Math.atan2(
                 direction.x,
                 -direction.z
             );
 
-        enemy.mesh.rotation.y = angle;
+
+        updateHealthBar(
+            enemy
+        );
 
 
-        updateHealthBarPosition(enemy);
+        if (
+            enemy.type === "boss"
+        ) {
 
-        updateHealthBar(enemy);
-
-
-        if (enemy.type === "boss") {
-            updateBossBar(enemy);
+            updateBoss(
+                enemy
+            );
         }
     }
 }
 
 
 /* =========================================================
-   ENEMY REACHES BASE
+   BASE DAMAGE
 ========================================================= */
 
-function reachBase(enemy, index) {
+function reachBase(
+    enemy,
+    index
+) {
 
-    scene.remove(enemy.mesh);
-    scene.remove(enemy.healthBar);
+    scene.remove(
+        enemy.mesh
+    );
 
-    enemies.splice(index, 1);
+    scene.remove(
+        enemy.healthBar
+    );
 
-    if (enemy.type === "boss") {
-        hideBossBar();
 
-        GAME.baseHealth -= 40;
+    enemies.splice(
+        index,
+        1
+    );
+
+
+    if (
+        enemy.type === "boss"
+    ) {
+
+        hideBoss();
+
+        GAME.baseHealth -=
+            40;
 
         showMessage(
-            "👑 THE BOSS REACHED YOUR BASE! -40 HP"
+            "👑 BOSS REACHED THE BASE! -40 HP"
         );
 
-    } else if (enemy.type === "tank") {
+    } else if (
+        enemy.type === "tank"
+    ) {
 
-        GAME.baseHealth -= 20;
+        GAME.baseHealth -=
+            20;
 
     } else {
 
-        GAME.baseHealth -= 10;
+        GAME.baseHealth -=
+            10;
     }
 
 
     GAME.baseHealth =
-        Math.max(0, GAME.baseHealth);
+        Math.max(
+            0,
+            GAME.baseHealth
+        );
+
 
     updateUI();
 
 
-    if (GAME.baseHealth <= 0) {
+    if (
+        GAME.baseHealth <= 0
+    ) {
+
         gameOver();
     }
 }
 
 
 /* =========================================================
-   TOWER CREATION
+   TOWER STATS
 ========================================================= */
 
-function createTower(x, z, typeKey) {
+function updateTowerStats(
+    tower
+) {
+
+    const base =
+        TOWER_TYPES[
+            tower.type
+        ];
+
+
+    const multiplier =
+        UPGRADE_MULTIPLIERS[
+            tower.level
+        ];
+
+
+    tower.damage =
+        base.damage *
+        multiplier.damage;
+
+
+    tower.range =
+        base.range *
+        multiplier.range;
+
+
+    tower.fireRate =
+        base.fireRate *
+        multiplier.fireRate;
+
+
+    tower.projectileSpeed =
+        base.projectileSpeed;
+}
+
+
+/* =========================================================
+   CREATE TOWER
+========================================================= */
+
+function createTower(
+    x,
+    z,
+    typeKey
+) {
 
     const type =
-        TOWER_TYPES[typeKey];
-
-    const group = new THREE.Group();
-
-
-    const baseMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.7,
-            1.8,
-            1.7
-        ),
-        new THREE.MeshStandardMaterial({
-            color: type.baseColor
-        })
-    );
-
-    baseMesh.position.y = 0.9;
+        TOWER_TYPES[
+            typeKey
+        ];
 
 
-    const turret = new THREE.Group();
-
-    turret.position.y = 1.8;
-
-
-    const top = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.3,
-            0.9,
-            1.3
-        ),
-        new THREE.MeshStandardMaterial({
-            color: type.topColor
-        })
-    );
-
-    top.position.y = 0.45;
+    const group =
+        new THREE.Group();
 
 
-    const barrelLength =
+    const baseMesh =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                1.7,
+                1.8,
+                1.7
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: type.base
+            })
+        );
+
+
+    baseMesh.position.y =
+        0.9;
+
+
+    const turret =
+        new THREE.Group();
+
+
+    turret.position.y =
+        1.8;
+
+
+    const top =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                1.3,
+                0.9,
+                1.3
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: type.top
+            })
+        );
+
+
+    top.position.y =
+        0.45;
+
+
+    const length =
         typeKey === "cannon"
             ? 1.6
             : 1.25;
 
-    const barrelRadius =
+
+    const radius =
         typeKey === "cannon"
             ? 0.3
             : 0.14;
 
-    const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            barrelRadius,
-            barrelRadius,
-            barrelLength,
-            8
-        ),
-        new THREE.MeshStandardMaterial({
-            color: type.barrelColor
-        })
-    );
+
+    const barrel =
+        new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                radius,
+                radius,
+                length,
+                8
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color: type.barrel
+            })
+        );
+
 
     barrel.rotation.x =
         Math.PI / 2;
 
+
     barrel.position.z =
-        -barrelLength / 2;
+        -length / 2;
 
 
-    turret.add(top);
-    turret.add(barrel);
+    turret.add(
+        top,
+        barrel
+    );
 
 
-    if (typeKey === "magic") {
+    if (
+        typeKey === "magic"
+    ) {
 
-        const crystal = new THREE.Mesh(
-            new THREE.OctahedronGeometry(
-                0.35
-            ),
-            new THREE.MeshStandardMaterial({
-                color: 0xe040fb,
-                emissive: 0x6a0080
-            })
+        const crystal =
+            new THREE.Mesh(
+
+                new THREE.OctahedronGeometry(
+                    0.35
+                ),
+
+                new THREE.MeshStandardMaterial({
+                    color: 0xe040fb,
+                    emissive: 0x6a0080
+                })
+            );
+
+
+        crystal.position.y =
+            1;
+
+
+        turret.add(
+            crystal
         );
-
-        crystal.position.y = 1;
-
-        turret.add(crystal);
     }
 
 
-    group.add(baseMesh);
-    group.add(turret);
+    group.add(
+        baseMesh,
+        turret
+    );
 
 
     group.position.set(
@@ -1208,19 +1683,23 @@ function createTower(x, z, typeKey) {
     );
 
 
-    group.traverse(object => {
+    group.traverse(
+        object => {
 
-        if (object.isMesh) {
-            object.castShadow = true;
+            if (object.isMesh) {
+                object.castShadow = true;
+            }
+
         }
-
-    });
-
-
-    scene.add(group);
+    );
 
 
-    towers.push({
+    scene.add(
+        group
+    );
+
+
+    const tower = {
 
         mesh: group,
 
@@ -1228,11 +1707,19 @@ function createTower(x, z, typeKey) {
 
         type: typeKey,
 
-        range: type.range,
+        level: 1,
 
-        damage: type.damage,
+        totalSpent: type.cost,
 
-        fireRate: type.fireRate,
+        target: null,
+
+        cooldown: 0,
+
+        damage: 0,
+
+        range: 0,
+
+        fireRate: 0,
 
         projectileSpeed:
             type.projectileSpeed,
@@ -1241,84 +1728,515 @@ function createTower(x, z, typeKey) {
             type.projectileSize,
 
         projectileColor:
-            type.projectileColor,
-
-        cooldown: 0,
-
-        target: null
-    });
+            type.projectile
+    };
 
 
-    GAME.coins -= type.cost;
+    updateTowerStats(
+        tower
+    );
+
+
+    towers.push(
+        tower
+    );
+
+
+    GAME.coins -=
+        type.cost;
+
 
     updateUI();
 
+
     showMessage(
         `${type.emoji} ${type.name} placed!`
+    );
+
+
+    selectTower(
+        tower
     );
 }
 
 
 /* =========================================================
-   TOWER TARGETING
+   TOWER PANEL
 ========================================================= */
 
-function findTarget(tower) {
+let towerPanel = null;
 
-    let bestTarget = null;
-    let bestDistance = Infinity;
 
-    for (const enemy of enemies) {
+function createTowerPanel() {
+
+    if (towerPanel) {
+        return;
+    }
+
+
+    towerPanel =
+        document.createElement(
+            "div"
+        );
+
+
+    Object.assign(
+        towerPanel.style,
+        {
+            position: "fixed",
+            right: "15px",
+            bottom: "75px",
+            width: "240px",
+            padding: "12px",
+            background: "rgba(0,0,0,0.88)",
+            color: "white",
+            borderRadius: "12px",
+            zIndex: "30",
+            fontFamily: "Arial, sans-serif",
+            boxSizing: "border-box"
+        }
+    );
+
+
+    document.body.appendChild(
+        towerPanel
+    );
+}
+
+
+function selectTower(
+    tower
+) {
+
+    GAME.selectedTower =
+        tower;
+
+
+    createTowerPanel();
+
+    renderTowerPanel();
+}
+
+
+function closeTowerPanel() {
+
+    if (towerPanel) {
+
+        towerPanel.remove();
+
+        towerPanel = null;
+    }
+
+
+    GAME.selectedTower =
+        null;
+}
+
+
+function renderTowerPanel() {
+
+    if (
+        !towerPanel ||
+        !GAME.selectedTower
+    ) {
+        return;
+    }
+
+
+    const tower =
+        GAME.selectedTower;
+
+
+    const data =
+        TOWER_TYPES[
+            tower.type
+        ];
+
+
+    const upgradeCost =
+        tower.level < 3
+            ? UPGRADE_COSTS[
+                tower.type
+            ][tower.level]
+            : null;
+
+
+    towerPanel.innerHTML = "";
+
+
+    const title =
+        document.createElement(
+            "div"
+        );
+
+
+    title.innerHTML =
+        `${data.emoji} <b>${data.name}</b> — Level ${tower.level}`;
+
+
+    title.style.fontSize =
+        "18px";
+
+
+    title.style.marginBottom =
+        "8px";
+
+
+    towerPanel.appendChild(
+        title
+    );
+
+
+    const stats =
+        document.createElement(
+            "div"
+        );
+
+
+    stats.innerHTML = `
+        💥 Damage: ${Math.round(tower.damage)}<br>
+        📏 Range: ${tower.range.toFixed(1)}<br>
+        ⚡ Fire Rate: ${tower.fireRate.toFixed(2)}s
+    `;
+
+
+    stats.style.lineHeight =
+        "1.6";
+
+
+    towerPanel.appendChild(
+        stats
+    );
+
+
+    const upgrade =
+        document.createElement(
+            "button"
+        );
+
+
+    upgrade.textContent =
+        upgradeCost
+            ? `⬆️ Upgrade — ${upgradeCost} coins`
+            : "⭐ MAX LEVEL";
+
+
+    upgrade.disabled =
+        !upgradeCost;
+
+
+    Object.assign(
+        upgrade.style,
+        {
+            width: "100%",
+            padding: "9px",
+            marginTop: "10px",
+            border: "none",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            cursor: upgradeCost
+                ? "pointer"
+                : "default"
+        }
+    );
+
+
+    upgrade.onclick =
+        upgradeTower;
+
+
+    towerPanel.appendChild(
+        upgrade
+    );
+
+
+    const sell =
+        document.createElement(
+            "button"
+        );
+
+
+    sell.textContent =
+        `💰 Sell — ${Math.floor(
+            tower.totalSpent * 0.6
+        )} coins`;
+
+
+    Object.assign(
+        sell.style,
+        {
+            width: "100%",
+            padding: "9px",
+            marginTop: "6px",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer"
+        }
+    );
+
+
+    sell.onclick =
+        sellTower;
+
+
+    towerPanel.appendChild(
+        sell
+    );
+
+
+    const close =
+        document.createElement(
+            "button"
+        );
+
+
+    close.textContent =
+        "✖ Close";
+
+
+    Object.assign(
+        close.style,
+        {
+            width: "100%",
+            padding: "7px",
+            marginTop: "6px",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer"
+        }
+    );
+
+
+    close.onclick =
+        closeTowerPanel;
+
+
+    towerPanel.appendChild(
+        close
+    );
+}
+
+
+/* =========================================================
+   UPGRADE TOWER
+========================================================= */
+
+function upgradeTower() {
+
+    const tower =
+        GAME.selectedTower;
+
+
+    if (
+        !tower ||
+        tower.level >= 3
+    ) {
+        return;
+    }
+
+
+    const cost =
+        UPGRADE_COSTS[
+            tower.type
+        ][tower.level];
+
+
+    if (
+        GAME.coins < cost
+    ) {
+
+        showMessage(
+            "❌ Not enough coins!"
+        );
+
+        return;
+    }
+
+
+    GAME.coins -=
+        cost;
+
+
+    tower.totalSpent +=
+        cost;
+
+
+    tower.level++;
+
+
+    updateTowerStats(
+        tower
+    );
+
+
+    /*
+     * Make upgraded towers
+     * physically bigger.
+     */
+
+    tower.mesh.scale.setScalar(
+        1 +
+        0.08 *
+        (tower.level - 1)
+    );
+
+
+    showMessage(
+        `⭐ ${TOWER_TYPES[tower.type].name} upgraded to Level ${tower.level}!`
+    );
+
+
+    updateUI();
+
+    renderTowerPanel();
+}
+
+
+/* =========================================================
+   SELL TOWER
+========================================================= */
+
+function sellTower() {
+
+    const tower =
+        GAME.selectedTower;
+
+
+    if (!tower) {
+        return;
+    }
+
+
+    const refund =
+        Math.floor(
+            tower.totalSpent *
+            0.6
+        );
+
+
+    GAME.coins +=
+        refund;
+
+
+    const index =
+        towers.indexOf(
+            tower
+        );
+
+
+    if (index >= 0) {
+
+        towers.splice(
+            index,
+            1
+        );
+    }
+
+
+    scene.remove(
+        tower.mesh
+    );
+
+
+    closeTowerPanel();
+
+    updateUI();
+
+
+    showMessage(
+        `💰 Tower sold for ${refund} coins!`
+    );
+}
+
+
+/* =========================================================
+   TARGETING
+========================================================= */
+
+function findTarget(
+    tower
+) {
+
+    let bestTarget =
+        null;
+
+    let bestDistance =
+        Infinity;
+
+
+    for (
+        const enemy of enemies
+    ) {
 
         const distance =
             tower.mesh.position.distanceTo(
                 enemy.mesh.position
             );
 
+
         if (
-            distance <= tower.range &&
-            distance < bestDistance
+            distance <=
+                tower.range &&
+            distance <
+                bestDistance
         ) {
 
-            bestDistance = distance;
-            bestTarget = enemy;
+            bestDistance =
+                distance;
+
+            bestTarget =
+                enemy;
         }
     }
+
 
     return bestTarget;
 }
 
 
 /* =========================================================
-   TOWER UPDATES
+   TOWER UPDATE
 ========================================================= */
 
-function updateTowers(delta) {
+function updateTowers(
+    delta
+) {
 
-    for (const tower of towers) {
+    for (
+        const tower of towers
+    ) {
 
-        tower.cooldown -= delta;
+        tower.cooldown -=
+            delta;
+
 
         if (
             !tower.target ||
-            !enemies.includes(tower.target) ||
+            !enemies.includes(
+                tower.target
+            ) ||
             tower.mesh.position.distanceTo(
                 tower.target.mesh.position
             ) > tower.range
         ) {
 
             tower.target =
-                findTarget(tower);
+                findTarget(
+                    tower
+                );
         }
 
 
-        if (!tower.target) {
+        if (
+            !tower.target
+        ) {
             continue;
         }
 
 
         const target =
             tower.target.mesh.position;
+
 
         const turretPosition =
             tower.turret.getWorldPosition(
@@ -1329,6 +2247,7 @@ function updateTowers(delta) {
         const dx =
             target.x -
             turretPosition.x;
+
 
         const dz =
             target.z -
@@ -1342,35 +2261,48 @@ function updateTowers(delta) {
             );
 
 
-        let currentAngle =
+        let difference =
+            desiredAngle -
             tower.turret.rotation.y;
 
 
-        let difference =
-            desiredAngle -
-            currentAngle;
+        while (
+            difference >
+            Math.PI
+        ) {
 
-
-        while (difference > Math.PI) {
-            difference -= Math.PI * 2;
+            difference -=
+                Math.PI * 2;
         }
 
-        while (difference < -Math.PI) {
-            difference += Math.PI * 2;
+
+        while (
+            difference <
+            -Math.PI
+        ) {
+
+            difference +=
+                Math.PI * 2;
         }
 
 
         tower.turret.rotation.y +=
             difference *
-            Math.min(1, delta * 8);
+            Math.min(
+                1,
+                delta * 8
+            );
 
 
-        if (tower.cooldown <= 0) {
+        if (
+            tower.cooldown <= 0
+        ) {
 
             fireProjectile(
                 tower,
                 tower.target
             );
+
 
             tower.cooldown =
                 tower.fireRate;
@@ -1388,33 +2320,38 @@ function fireProjectile(
     target
 ) {
 
-    const projectile = new THREE.Mesh(
-        new THREE.SphereGeometry(
-            tower.projectileSize,
-            10,
-            10
-        ),
-        new THREE.MeshStandardMaterial({
-            color:
-                tower.projectileColor,
-            emissive:
-                tower.projectileColor,
-            emissiveIntensity: 0.35
-        })
-    );
+    const projectile =
+        new THREE.Mesh(
 
+            new THREE.SphereGeometry(
+                tower.projectileSize,
+                10,
+                10
+            ),
 
-    const position =
-        tower.turret.getWorldPosition(
-            new THREE.Vector3()
+            new THREE.MeshStandardMaterial({
+                color:
+                    tower.projectileColor,
+
+                emissive:
+                    tower.projectileColor,
+
+                emissiveIntensity:
+                    0.35
+            })
         );
 
 
     projectile.position.copy(
-        position
+        tower.turret.getWorldPosition(
+            new THREE.Vector3()
+        )
     );
 
-    scene.add(projectile);
+
+    scene.add(
+        projectile
+    );
 
 
     projectiles.push({
@@ -1439,7 +2376,9 @@ function fireProjectile(
    PROJECTILE UPDATE
 ========================================================= */
 
-function updateProjectiles(delta) {
+function updateProjectiles(
+    delta
+) {
 
     for (
         let i = projectiles.length - 1;
@@ -1450,20 +2389,28 @@ function updateProjectiles(delta) {
         const projectile =
             projectiles[i];
 
+
         const target =
             projectile.target;
 
 
         if (
             !target ||
-            !enemies.includes(target)
+            !enemies.includes(
+                target
+            )
         ) {
 
             scene.remove(
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+
+            projectiles.splice(
+                i,
+                1
+            );
+
 
             continue;
         }
@@ -1481,7 +2428,9 @@ function updateProjectiles(delta) {
             direction.length();
 
 
-        if (distance < 0.65) {
+        if (
+            distance < 0.65
+        ) {
 
             damageEnemy(
                 target,
@@ -1494,7 +2443,12 @@ function updateProjectiles(delta) {
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+
+            projectiles.splice(
+                i,
+                1
+            );
+
 
             continue;
         }
@@ -1514,7 +2468,7 @@ function updateProjectiles(delta) {
 
 
 /* =========================================================
-   DAMAGE ENEMY
+   DAMAGE
 ========================================================= */
 
 function damageEnemy(
@@ -1523,23 +2477,17 @@ function damageEnemy(
     towerType
 ) {
 
-    let finalDamage = damage;
+    let finalDamage =
+        damage;
 
-
-    /*
-     * V0.3 tower roles
-     *
-     * Archer = stronger against Fast
-     * Cannon = stronger against Tank
-     * Magic = stronger against Boss
-     */
 
     if (
         towerType === "archer" &&
         enemy.type === "fast"
     ) {
 
-        finalDamage *= 1.25;
+        finalDamage *=
+            1.25;
     }
 
 
@@ -1548,7 +2496,8 @@ function damageEnemy(
         enemy.type === "tank"
     ) {
 
-        finalDamage *= 1.35;
+        finalDamage *=
+            1.35;
     }
 
 
@@ -1557,23 +2506,37 @@ function damageEnemy(
         enemy.type === "boss"
     ) {
 
-        finalDamage *= 1.15;
+        finalDamage *=
+            1.15;
     }
 
 
-    enemy.health -= finalDamage;
+    enemy.health -=
+        finalDamage;
 
-    updateHealthBar(enemy);
+
+    updateHealthBar(
+        enemy
+    );
 
 
-    if (enemy.type === "boss") {
-        updateBossBar(enemy);
+    if (
+        enemy.type === "boss"
+    ) {
+
+        updateBoss(
+            enemy
+        );
     }
 
 
-    if (enemy.health <= 0) {
+    if (
+        enemy.health <= 0
+    ) {
 
-        destroyEnemy(enemy);
+        destroyEnemy(
+            enemy
+        );
     }
 }
 
@@ -1582,22 +2545,29 @@ function damageEnemy(
    DESTROY ENEMY
 ========================================================= */
 
-function destroyEnemy(enemy) {
+function destroyEnemy(
+    enemy
+) {
 
     const index =
-        enemies.indexOf(enemy);
+        enemies.indexOf(
+            enemy
+        );
+
 
     if (index === -1) {
         return;
     }
 
 
-    GAME.coins += enemy.reward;
+    GAME.coins +=
+        enemy.reward;
 
 
     scene.remove(
         enemy.mesh
     );
+
 
     scene.remove(
         enemy.healthBar
@@ -1610,18 +2580,15 @@ function destroyEnemy(enemy) {
     );
 
 
-    if (enemy.type === "boss") {
+    if (
+        enemy.type === "boss"
+    ) {
 
-        hideBossBar();
+        hideBoss();
+
 
         showMessage(
             "👑 BOSS DEFEATED! +100 COINS!"
-        );
-
-    } else {
-
-        showMessage(
-            `+${enemy.reward} coins`
         );
     }
 
@@ -1636,28 +2603,34 @@ function destroyEnemy(enemy) {
 
 function checkWaveComplete() {
 
-    if (!GAME.waveRunning) {
+    if (
+        !GAME.waveRunning
+    ) {
         return;
     }
 
 
     if (
         GAME.spawnIndex >=
-        GAME.spawnQueue.length &&
+            GAME.spawnQueue.length &&
         enemies.length === 0
     ) {
 
-        GAME.waveRunning = false;
+        GAME.waveRunning =
+            false;
 
-        const waveReward = 25;
 
-        GAME.coins += waveReward;
+        GAME.coins +=
+            25;
+
 
         showMessage(
-            `🎉 Wave ${GAME.wave} complete! +${waveReward} coins`
+            `🎉 Wave ${GAME.wave} complete! +25 coins`
         );
 
+
         GAME.wave++;
+
 
         updateUI();
     }
@@ -1665,166 +2638,17 @@ function checkWaveComplete() {
 
 
 /* =========================================================
-   TOWER MENU
-========================================================= */
-
-let towerMenu = null;
-
-function openTowerMenu() {
-
-    if (towerMenu) {
-        return;
-    }
-
-
-    towerMenu =
-        document.createElement("div");
-
-
-    towerMenu.style.position =
-        "fixed";
-
-    towerMenu.style.bottom =
-        "75px";
-
-    towerMenu.style.left =
-        "50%";
-
-    towerMenu.style.transform =
-        "translateX(-50%)";
-
-    towerMenu.style.display =
-        "flex";
-
-    towerMenu.style.gap =
-        "8px";
-
-    towerMenu.style.padding =
-        "10px";
-
-    towerMenu.style.background =
-        "rgba(0,0,0,0.8)";
-
-    towerMenu.style.borderRadius =
-        "12px";
-
-    towerMenu.style.zIndex =
-        "15";
-
-    towerMenu.style.flexWrap =
-        "wrap";
-
-    towerMenu.style.justifyContent =
-        "center";
-
-
-    Object.entries(
-        TOWER_TYPES
-    ).forEach(
-        ([key, type]) => {
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-            button.textContent =
-                `${type.emoji} ${type.name} - ${type.cost}`;
-
-            button.style.padding =
-                "10px 14px";
-
-            button.style.border =
-                "none";
-
-            button.style.borderRadius =
-                "8px";
-
-            button.style.cursor =
-                "pointer";
-
-            button.style.fontWeight =
-                "bold";
-
-
-            button.onclick = () => {
-
-                if (
-                    GAME.coins <
-                    type.cost
-                ) {
-
-                    showMessage(
-                        "❌ Not enough coins!"
-                    );
-
-                    return;
-                }
-
-
-                GAME.selectedTower =
-                    key;
-
-                GAME.towerMode = true;
-
-                document.getElementById(
-                    "towerButton"
-                ).textContent =
-                    "❌ CANCEL";
-
-                showMessage(
-                    `Place your ${type.name} tower!`
-                );
-
-                closeTowerMenu();
-            };
-
-
-            towerMenu.appendChild(
-                button
-            );
-        }
-    );
-
-
-    document.body.appendChild(
-        towerMenu
-    );
-}
-
-
-function closeTowerMenu() {
-
-    if (towerMenu) {
-
-        towerMenu.remove();
-
-        towerMenu = null;
-    }
-}
-
-
-function cancelTowerMode() {
-
-    GAME.towerMode = false;
-    GAME.selectedTower = null;
-
-    document.getElementById(
-        "towerButton"
-    ).textContent =
-        "🏰 TOWER";
-
-    closeTowerMenu();
-}
-
-
-/* =========================================================
    PATH CHECK
 ========================================================= */
 
-function isOnPath(x, z) {
+function isOnPath(
+    x,
+    z
+) {
 
-    const width = 2.4;
+    const width =
+        2.4;
+
 
     for (
         let i = 0;
@@ -1832,18 +2656,31 @@ function isOnPath(x, z) {
         i++
     ) {
 
-        const a = pathPoints[i];
-        const b = pathPoints[i + 1];
+        const a =
+            pathPoints[i];
+
+        const b =
+            pathPoints[i + 1];
 
 
-        if (a.x === b.x) {
+        if (
+            a.x === b.x
+        ) {
 
             if (
-                Math.abs(x - a.x) < width &&
+                Math.abs(
+                    x - a.x
+                ) < width &&
                 z >=
-                    Math.min(a.z, b.z) - width &&
+                    Math.min(
+                        a.z,
+                        b.z
+                    ) - width &&
                 z <=
-                    Math.max(a.z, b.z) + width
+                    Math.max(
+                        a.z,
+                        b.z
+                    ) + width
             ) {
 
                 return true;
@@ -1852,11 +2689,19 @@ function isOnPath(x, z) {
         } else {
 
             if (
-                Math.abs(z - a.z) < width &&
+                Math.abs(
+                    z - a.z
+                ) < width &&
                 x >=
-                    Math.min(a.x, b.x) - width &&
+                    Math.min(
+                        a.x,
+                        b.x
+                    ) - width &&
                 x <=
-                    Math.max(a.x, b.x) + width
+                    Math.max(
+                        a.x,
+                        b.x
+                    ) + width
             ) {
 
                 return true;
@@ -1864,55 +2709,133 @@ function isOnPath(x, z) {
         }
     }
 
+
     return false;
 }
 
 
 /* =========================================================
-   MAP CLICK
+   MOUSE / TOWER SELECTION
 ========================================================= */
+
+const raycaster =
+    new THREE.Raycaster();
+
+const mouse =
+    new THREE.Vector2();
+
 
 renderer.domElement.addEventListener(
     "pointerdown",
     event => {
 
-        if (
-            !GAME.towerMode ||
-            GAME.gameOver
-        ) {
-            return;
-        }
-
-
         const rect =
             renderer.domElement.getBoundingClientRect();
 
 
-        const mouse =
-            new THREE.Vector2(
+        mouse.x =
+            (
+                (event.clientX -
+                    rect.left) /
+                rect.width
+            ) * 2 - 1;
+
+
+        mouse.y =
+            -(
                 (
-                    (event.clientX -
-                        rect.left) /
-                    rect.width
-                ) * 2 - 1,
+                    event.clientY -
+                    rect.top
+                ) /
+                rect.height
+            ) * 2 + 1;
 
-                -(
-                    (
-                        event.clientY -
-                        rect.top
-                    ) /
-                    rect.height
-                ) * 2 + 1
-            );
-
-
-        const raycaster =
-            new THREE.Raycaster();
 
         raycaster.setFromCamera(
             mouse,
             camera
         );
+
+
+        /*
+         * Check towers first.
+         */
+
+        const towerMeshes =
+            towers.map(
+                tower =>
+                    tower.mesh
+            );
+
+
+        const hits =
+            raycaster.intersectObjects(
+                towerMeshes,
+                true
+            );
+
+
+        if (
+            hits.length > 0
+        ) {
+
+            let object =
+                hits[0].object;
+
+
+            while (
+                object.parent &&
+                !towers.some(
+                    tower =>
+                        tower.mesh ===
+                        object
+                )
+            ) {
+
+                object =
+                    object.parent;
+            }
+
+
+            const tower =
+                towers.find(
+                    tower =>
+                        tower.mesh ===
+                        object
+                );
+
+
+            if (tower) {
+
+                if (
+                    GAME.towerMode
+                ) {
+
+                    cancelTowerMode();
+                }
+
+
+                selectTower(
+                    tower
+                );
+
+
+                return;
+            }
+        }
+
+
+        /*
+         * Otherwise place a tower.
+         */
+
+        if (
+            !GAME.towerMode ||
+            GAME.gameOver
+        ) {
+
+            return;
+        }
 
 
         const hit =
@@ -1948,7 +2871,12 @@ renderer.domElement.addEventListener(
         }
 
 
-        if (isOnPath(x, z)) {
+        if (
+            isOnPath(
+                x,
+                z
+            )
+        ) {
 
             showMessage(
                 "❌ You cannot build on the path!"
@@ -1958,14 +2886,12 @@ renderer.domElement.addEventListener(
         }
 
 
-        const baseDistance =
-            Math.sqrt(
-                Math.pow(x - 15, 2) +
-                Math.pow(z - 9, 2)
-            );
-
-
-        if (baseDistance < 3) {
+        if (
+            Math.hypot(
+                x - 15,
+                z - 9
+            ) < 3
+        ) {
 
             showMessage(
                 "❌ Too close to the base!"
@@ -1975,7 +2901,9 @@ renderer.domElement.addEventListener(
         }
 
 
-        for (const tower of towers) {
+        for (
+            const tower of towers
+        ) {
 
             const distance =
                 tower.mesh.position.distanceTo(
@@ -1986,7 +2914,10 @@ renderer.domElement.addEventListener(
                     )
                 );
 
-            if (distance < 2.5) {
+
+            if (
+                distance < 2.5
+            ) {
 
                 showMessage(
                     "❌ Towers are too close!"
@@ -1999,7 +2930,7 @@ renderer.domElement.addEventListener(
 
         const type =
             TOWER_TYPES[
-                GAME.selectedTower
+                GAME.selectedTowerType
             ];
 
 
@@ -2019,13 +2950,161 @@ renderer.domElement.addEventListener(
         createTower(
             x,
             z,
-            GAME.selectedTower
+            GAME.selectedTowerType
         );
 
 
         cancelTowerMode();
     }
 );
+
+
+/* =========================================================
+   TOWER MENU
+========================================================= */
+
+let towerMenu = null;
+
+
+function openTowerMenu() {
+
+    if (towerMenu) {
+        return;
+    }
+
+
+    towerMenu =
+        document.createElement(
+            "div"
+        );
+
+
+    Object.assign(
+        towerMenu.style,
+        {
+            position: "fixed",
+            bottom: "75px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: "8px",
+            padding: "10px",
+            background: "rgba(0,0,0,0.8)",
+            borderRadius: "12px",
+            zIndex: "15",
+            flexWrap: "wrap",
+            justifyContent: "center"
+        }
+    );
+
+
+    Object.entries(
+        TOWER_TYPES
+    ).forEach(
+        ([key, tower]) => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.textContent =
+                `${tower.emoji} ${tower.name} - ${tower.cost}`;
+
+
+            Object.assign(
+                button.style,
+                {
+                    padding: "10px 14px",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold"
+                }
+            );
+
+
+            button.onclick =
+                () => {
+
+                    if (
+                        GAME.coins <
+                        tower.cost
+                    ) {
+
+                        showMessage(
+                            "❌ Not enough coins!"
+                        );
+
+                        return;
+                    }
+
+
+                    GAME.selectedTowerType =
+                        key;
+
+
+                    GAME.towerMode =
+                        true;
+
+
+                    document.getElementById(
+                        "towerButton"
+                    ).textContent =
+                        "❌ CANCEL";
+
+
+                    closeTowerMenu();
+
+
+                    showMessage(
+                        `Place your ${tower.name} tower!`
+                    );
+                };
+
+
+            towerMenu.appendChild(
+                button
+            );
+        }
+    );
+
+
+    document.body.appendChild(
+        towerMenu
+    );
+}
+
+
+function closeTowerMenu() {
+
+    if (towerMenu) {
+
+        towerMenu.remove();
+
+        towerMenu = null;
+    }
+}
+
+
+function cancelTowerMode() {
+
+    GAME.towerMode =
+        false;
+
+    GAME.selectedTowerType =
+        null;
+
+
+    document.getElementById(
+        "towerButton"
+    ).textContent =
+        "🏰 TOWER";
+
+
+    closeTowerMenu();
+}
 
 
 /* =========================================================
@@ -2039,10 +3118,12 @@ function updateUI() {
     ).textContent =
         GAME.coins;
 
+
     document.getElementById(
         "baseHealth"
     ).textContent =
         GAME.baseHealth;
+
 
     document.getElementById(
         "wave"
@@ -2051,34 +3132,42 @@ function updateUI() {
 }
 
 
-/* =========================================================
-   MESSAGE
-========================================================= */
-
 let messageTimer = null;
 
-function showMessage(text) {
+
+function showMessage(
+    text
+) {
 
     const message =
         document.getElementById(
             "message"
         );
 
-    message.textContent = text;
 
-    message.style.opacity = "1";
+    message.textContent =
+        text;
+
+
+    message.style.opacity =
+        "1";
+
 
     clearTimeout(
         messageTimer
     );
 
+
     messageTimer =
-        setTimeout(() => {
+        setTimeout(
+            () => {
 
-            message.style.opacity =
-                "0";
+                message.style.opacity =
+                    "0";
 
-        }, 1800);
+            },
+            1800
+        );
 }
 
 
@@ -2088,12 +3177,19 @@ function showMessage(text) {
 
 function gameOver() {
 
-    GAME.gameOver = true;
-    GAME.waveRunning = false;
+    GAME.gameOver =
+        true;
+
+    GAME.waveRunning =
+        false;
+
 
     cancelTowerMode();
 
-    hideBossBar();
+    closeTowerPanel();
+
+    hideBoss();
+
 
     showMessage(
         "💀 GAME OVER — Refresh to play again."
@@ -2119,12 +3215,16 @@ document.getElementById(
     "click",
     () => {
 
-        if (GAME.gameOver) {
+        if (
+            GAME.gameOver
+        ) {
             return;
         }
 
 
-        if (GAME.towerMode) {
+        if (
+            GAME.towerMode
+        ) {
 
             cancelTowerMode();
 
@@ -2132,7 +3232,9 @@ document.getElementById(
         }
 
 
-        if (towerMenu) {
+        if (
+            towerMenu
+        ) {
 
             closeTowerMenu();
 
@@ -2156,7 +3258,9 @@ window.addEventListener(
             window.innerWidth /
             window.innerHeight;
 
+
         camera.updateProjectionMatrix();
+
 
         renderer.setSize(
             window.innerWidth,
@@ -2167,11 +3271,17 @@ window.addEventListener(
 
 
 /* =========================================================
-   MAIN LOOP
+   START
 ========================================================= */
+
+createBossUI();
+
+updateUI();
+
 
 const clock =
     new THREE.Clock();
+
 
 function animate() {
 
@@ -2187,15 +3297,25 @@ function animate() {
         );
 
 
-    if (!GAME.gameOver) {
+    if (
+        !GAME.gameOver
+    ) {
 
-        updateSpawning(delta);
+        updateSpawning(
+            delta
+        );
 
-        updateEnemies(delta);
+        updateEnemies(
+            delta
+        );
 
-        updateTowers(delta);
+        updateTowers(
+            delta
+        );
 
-        updateProjectiles(delta);
+        updateProjectiles(
+            delta
+        );
 
         checkWaveComplete();
     }
@@ -2208,16 +3328,9 @@ function animate() {
 }
 
 
-/* =========================
-   START GAME
-========================= */
-
-createBossUI();
-
-updateUI();
-
 animate();
 
+
 showMessage(
-    "🏰 Welcome to GREAK TOWER V0.3!"
+    "🏰 GREAK TOWER V0.4!"
 );
