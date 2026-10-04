@@ -1,115 +1,169 @@
 "use strict";
 
 /* =========================================================
-   GREAK TOWER V0.5
-   Strategy + Abilities + Targeting + Wave Preview
-   ========================================================= */
+   GREAK TOWER V0.6
+   POLISH + STRATEGY UPDATE
+========================================================= */
 
-const $ = id => document.getElementById(id);
 
 /* =========================================================
    GAME STATE
-   ========================================================= */
+========================================================= */
 
 const GAME = {
+
     coins: 100,
     baseHealth: 100,
+
     wave: 1,
+
+    xp: 0,
 
     waveRunning: false,
     gameOver: false,
     victory: false,
 
+    maxVictoryWave: 15,
+
     spawnQueue: [],
     spawnIndex: 0,
     spawnTimer: 0,
 
-    towerMode: false,
-    selectedTowerType: null,
-    selectedTower: null,
+    waveKills: 0,
+    totalKills: 0,
 
-    enemies: [],
+    selectedTower: null,
+    selectedTowerType: null,
+
     towers: [],
+    enemies: [],
     projectiles: [],
     effects: [],
 
-    waveBonus: 25,
+    towerMode: false,
 
-    maxVictoryWave: 15
+    targetModes: [
+        "First",
+        "Last",
+        "Strongest",
+        "Closest"
+    ]
+
 };
 
+
 /* =========================================================
-   THREE.JS SETUP
-   ========================================================= */
+   DOM
+========================================================= */
+
+const $ = id => document.getElementById(id);
+
+const coinsEl = $("coins");
+const healthEl = $("baseHealth");
+const waveEl = $("wave");
+const xpEl = $("xp");
+
+const startWaveButton = $("startWave");
+const towerButton = $("towerButton");
+const achievementsButton = $("achievementsButton");
+const messageEl = $("message");
+
+
+/* =========================================================
+   THREE.JS
+========================================================= */
 
 const scene = new THREE.Scene();
+
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(
     55,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    200
 );
 
 camera.position.set(0, 28, 27);
 camera.lookAt(0, 0, 0);
 
+
 const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
 renderer.shadowMap.enabled = true;
 
-$("game").appendChild(renderer.domElement);
+renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+document
+    .getElementById("game")
+    .appendChild(renderer.domElement);
+
 
 /* =========================================================
    LIGHTING
-   ========================================================= */
+========================================================= */
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+const ambientLight = new THREE.HemisphereLight(
+    0xffffff,
+    0x557755,
+    1.5
+);
+
 scene.add(ambientLight);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 25, 10);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    1.7
+);
+
+sun.position.set(
+    -15,
+    30,
+    10
+);
+
 sun.castShadow = true;
 
 scene.add(sun);
 
-/* =========================================================
-   MATERIALS
-   ========================================================= */
-
-const materials = {
-    grass: new THREE.MeshLambertMaterial({ color: 0x43a047 }),
-    path: new THREE.MeshLambertMaterial({ color: 0xd6b27a }),
-    tree: new THREE.MeshLambertMaterial({ color: 0x2e7d32 }),
-    trunk: new THREE.MeshLambertMaterial({ color: 0x795548 }),
-    base: new THREE.MeshLambertMaterial({ color: 0x7e57c2 }),
-    roof: new THREE.MeshLambertMaterial({ color: 0xff9800 })
-};
 
 /* =========================================================
-   GROUND
-   ========================================================= */
+   WORLD
+========================================================= */
 
 const ground = new THREE.Mesh(
-    new THREE.BoxGeometry(34, 1, 26),
-    materials.grass
+    new THREE.BoxGeometry(
+        34,
+        1,
+        26
+    ),
+    new THREE.MeshLambertMaterial({
+        color: 0x49a942
+    })
 );
 
 ground.position.y = -0.5;
+
 ground.receiveShadow = true;
 
 scene.add(ground);
 
+
 /* =========================================================
    PATH
-   ========================================================= */
+========================================================= */
 
 const pathPoints = [
+
     new THREE.Vector3(-15, 0, -9),
     new THREE.Vector3(-8, 0, -9),
     new THREE.Vector3(-8, 0, 5),
@@ -118,1416 +172,2353 @@ const pathPoints = [
     new THREE.Vector3(10, 0, -5),
     new THREE.Vector3(10, 0, 9),
     new THREE.Vector3(15, 0, 9)
+
 ];
+
 
 const pathMeshes = [];
 
-for (let i = 0; i < pathPoints.length - 1; i++) {
-    const a = pathPoints[i];
-    const b = pathPoints[i + 1];
 
-    const horizontal = Math.abs(a.x - b.x) > Math.abs(a.z - b.z);
+function createPath() {
 
-    const length = horizontal
-        ? Math.abs(a.x - b.x)
-        : Math.abs(a.z - b.z);
+    for (let i = 0; i < pathPoints.length - 1; i++) {
 
-    const geometry = new THREE.BoxGeometry(
-        horizontal ? length + 3.5 : 3.5,
-        0.18,
-        horizontal ? 3.5 : length + 3.5
-    );
+        const a = pathPoints[i];
+        const b = pathPoints[i + 1];
 
-    const mesh = new THREE.Mesh(
-        geometry,
-        materials.path
-    );
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
 
-    mesh.position.set(
-        (a.x + b.x) / 2,
-        0.05,
-        (a.z + b.z) / 2
-    );
+        const length =
+            Math.sqrt(dx * dx + dz * dz);
 
-    mesh.receiveShadow = true;
+        const mesh = new THREE.Mesh(
 
-    scene.add(mesh);
-    pathMeshes.push(mesh);
+            new THREE.BoxGeometry(
+                Math.abs(dx) > Math.abs(dz)
+                    ? length
+                    : 3.5,
+
+                .15,
+
+                Math.abs(dz) > Math.abs(dx)
+                    ? length
+                    : 3.5
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color: 0x9b7447
+            })
+
+        );
+
+        mesh.position.set(
+            (a.x + b.x) / 2,
+            0.05,
+            (a.z + b.z) / 2
+        );
+
+        mesh.receiveShadow = true;
+
+        scene.add(mesh);
+
+        pathMeshes.push(mesh);
+    }
 }
 
-/* =========================================================
-   TREES
-   ========================================================= */
+createPath();
 
-const treePositions = [
-    [-15, -3],
-    [-13, 6],
-    [-4, -3],
-    [-4, 9],
-    [6, 2],
-    [6, -10],
-    [13, -1],
-    [14, 5],
-    [-14, 11],
-    [5, 11]
-];
+
+/* =========================================================
+   DECORATION
+========================================================= */
 
 function createTree(x, z) {
+
     const group = new THREE.Group();
 
     const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.35, 0.45, 2.5, 8),
-        materials.trunk
+        new THREE.BoxGeometry(0.7, 2.8, 0.7),
+        new THREE.MeshLambertMaterial({
+            color: 0x6d4528
+        })
     );
 
-    trunk.position.y = 1.25;
+    trunk.position.y = 1.4;
+
     trunk.castShadow = true;
 
+    group.add(trunk);
+
+
     const leaves = new THREE.Mesh(
-        new THREE.SphereGeometry(1.5, 8, 8),
-        materials.tree
+        new THREE.DodecahedronGeometry(1.6),
+        new THREE.MeshLambertMaterial({
+            color: 0x187d32
+        })
     );
 
-    leaves.position.y = 3;
+    leaves.position.y = 3.2;
+
     leaves.castShadow = true;
 
-    group.add(trunk);
     group.add(leaves);
+
 
     group.position.set(x, 0, z);
 
     scene.add(group);
 }
 
-treePositions.forEach(p => createTree(p[0], p[1]));
+
+[
+    [-14, 5],
+    [-14, -4],
+    [-4, -4],
+    [-4, 9],
+    [6, 9],
+    [7, 2],
+    [13, 3],
+    [13, -9],
+    [0, -9]
+].forEach(p => createTree(p[0], p[1]));
+
 
 /* =========================================================
    BASE
-   ========================================================= */
+========================================================= */
 
 const base = new THREE.Group();
 
 const baseBody = new THREE.Mesh(
     new THREE.BoxGeometry(3, 3, 3),
-    materials.base
+    new THREE.MeshLambertMaterial({
+        color: 0x7030a0
+    })
 );
 
 baseBody.position.y = 1.5;
+
 baseBody.castShadow = true;
 
-const baseRoof = new THREE.Mesh(
-    new THREE.ConeGeometry(2.3, 2, 4),
-    materials.roof
+base.add(baseBody);
+
+
+const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(
+        2.2,
+        2,
+        4
+    ),
+    new THREE.MeshLambertMaterial({
+        color: 0xff8c00
+    })
 );
 
-baseRoof.position.y = 4;
+roof.position.y = 4;
 
-base.add(baseBody);
-base.add(baseRoof);
+roof.rotation.y = Math.PI / 4;
+
+roof.castShadow = true;
+
+base.add(roof);
 
 base.position.set(15, 0, 9);
 
 scene.add(base);
 
+
 /* =========================================================
-   TOWER TYPES
-   ========================================================= */
+   TOWER DATA
+========================================================= */
 
 const TOWER_TYPES = {
+
     archer: {
+
         name: "Archer",
-        icon: "🏹",
+
         cost: 50,
+
         range: 7,
+
         damage: 20,
-        fireRate: 0.45,
-        projectileSpeed: 18,
-        projectileSize: 0.18,
-        bodyColor: 0x1976d2,
-        headColor: 0x90caf9,
-        barrelColor: 0x222222,
-        bonusType: "fast",
-        abilityName: "RAPID FIRE",
-        abilityCooldown: 15
+
+        fireRate: .45,
+
+        projectileSpeed: 15,
+
+        color: 0x1976d2,
+
+        ability: "Rapid Fire",
+
+        cooldown: 15
+
     },
 
     cannon: {
+
         name: "Cannon",
-        icon: "💣",
+
         cost: 100,
+
         range: 6.5,
+
         damage: 55,
+
         fireRate: 1.5,
-        projectileSpeed: 11,
-        projectileSize: 0.32,
-        bodyColor: 0x555555,
-        headColor: 0x777777,
-        barrelColor: 0xff9800,
-        bonusType: "tank",
-        abilityName: "BIG BLAST",
-        abilityCooldown: 20
+
+        projectileSpeed: 9,
+
+        color: 0x444444,
+
+        ability: "Big Blast",
+
+        cooldown: 20
+
     },
 
     magic: {
+
         name: "Magic",
-        icon: "🔮",
+
         cost: 150,
+
         range: 10,
+
         damage: 40,
-        fireRate: 0.8,
-        projectileSpeed: 15,
-        projectileSize: 0.25,
-        bodyColor: 0x7b1fa2,
-        headColor: 0xce93d8,
-        barrelColor: 0xff00ff,
-        bonusType: "boss",
-        abilityName: "LIGHTNING",
-        abilityCooldown: 18
+
+        fireRate: .8,
+
+        projectileSpeed: 13,
+
+        color: 0x9c27b0,
+
+        ability: "Lightning",
+
+        cooldown: 18
+
     }
+
 };
 
-/* =========================================================
-   UPGRADE DATA
-   ========================================================= */
-
-const UPGRADE_COSTS = {
-    archer: [0, 75, 125],
-    cannon: [0, 125, 200],
-    magic: [0, 175, 275]
-};
-
-const LEVEL_STATS = [
-    {
-        damage: 1,
-        range: 1,
-        fireRate: 1
-    },
-    {
-        damage: 1.5,
-        range: 1.15,
-        fireRate: 0.82
-    },
-    {
-        damage: 2.2,
-        range: 1.3,
-        fireRate: 0.68
-    }
-];
 
 /* =========================================================
-   SOUND SYSTEM
-   ========================================================= */
-
-let audioContext = null;
-
-function sound(frequency, duration = 0.08, type = "square") {
-    try {
-        if (!audioContext) {
-            audioContext = new (
-                window.AudioContext ||
-                window.webkitAudioContext
-            )();
-        }
-
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-
-        oscillator.type = type;
-        oscillator.frequency.value = frequency;
-
-        gain.gain.setValueAtTime(
-            0.04,
-            audioContext.currentTime
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            audioContext.currentTime + duration
-        );
-
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-
-        oscillator.start();
-        oscillator.stop(
-            audioContext.currentTime + duration
-        );
-    } catch (e) {}
-}
-
-/* =========================================================
-   MESSAGE
-   ========================================================= */
-
-function message(text, duration = 1800) {
-    const box = $("message");
-
-    box.textContent = text;
-    box.style.opacity = "1";
-
-    clearTimeout(box._timer);
-
-    box._timer = setTimeout(() => {
-        box.style.opacity = "0";
-    }, duration);
-}
-
-/* =========================================================
-   HUD
-   ========================================================= */
-
-function updateHUD() {
-    $("coins").textContent = Math.floor(GAME.coins);
-    $("baseHealth").textContent = Math.max(
-        0,
-        Math.floor(GAME.baseHealth)
-    );
-    $("wave").textContent = GAME.wave;
-}
-
-/* =========================================================
-   ENEMY TYPES
-   ========================================================= */
+   ENEMY DATA
+========================================================= */
 
 const ENEMY_TYPES = {
+
     basic: {
+
         name: "Basic",
+
         health: 100,
+
         speed: 2.2,
+
         reward: 10,
+
         scale: 1,
+
         body: 0xe53935,
-        head: 0xff7043
+        head: 0xff7043,
+
+        armor: 0
+
     },
 
     fast: {
+
         name: "Fast",
+
         health: 60,
+
         speed: 4.2,
+
         reward: 15,
-        scale: 0.82,
+
+        scale: .82,
+
         body: 0x00a86b,
-        head: 0x00e676
+        head: 0x00e676,
+
+        armor: 0
+
     },
 
     tank: {
+
         name: "Tank",
+
         health: 300,
+
         speed: 1.15,
+
         reward: 30,
+
         scale: 1.35,
+
         body: 0x4a148c,
-        head: 0x7b1fa2
+        head: 0x7b1fa2,
+
+        armor: .15
+
     },
 
     boss: {
+
         name: "Boss",
+
         health: 1000,
-        speed: 0.85,
+
+        speed: .85,
+
         reward: 100,
+
         scale: 1.8,
+
         body: 0x7f0000,
-        head: 0xd32f2f
+        head: 0xd32f2f,
+
+        armor: .25
+
     }
+
 };
 
-/* =========================================================
-   BOSS UI
-   ========================================================= */
-
-let bossUI = null;
-
-function createBossUI() {
-    if (bossUI) return;
-
-    bossUI = document.createElement("div");
-
-    bossUI.style.position = "fixed";
-    bossUI.style.top = "75px";
-    bossUI.style.left = "50%";
-    bossUI.style.transform = "translateX(-50%)";
-    bossUI.style.width = "min(500px, 80vw)";
-    bossUI.style.background = "#222";
-    bossUI.style.border = "3px solid gold";
-    bossUI.style.padding = "5px";
-    bossUI.style.borderRadius = "8px";
-    bossUI.style.zIndex = "20";
-    bossUI.style.display = "none";
-
-    const title = document.createElement("div");
-
-    title.id = "bossTitle";
-    title.style.color = "white";
-    title.style.textAlign = "center";
-    title.style.fontWeight = "bold";
-
-    const barOuter = document.createElement("div");
-
-    barOuter.style.height = "18px";
-    barOuter.style.background = "#111";
-    barOuter.style.marginTop = "4px";
-    barOuter.style.borderRadius = "5px";
-    barOuter.style.overflow = "hidden";
-
-    const bar = document.createElement("div");
-
-    bar.id = "bossBar";
-    bar.style.height = "100%";
-    bar.style.width = "100%";
-    bar.style.background = "#e53935";
-
-    barOuter.appendChild(bar);
-
-    bossUI.appendChild(title);
-    bossUI.appendChild(barOuter);
-
-    document.body.appendChild(bossUI);
-}
-
-createBossUI();
-
-function updateBossUI(enemy) {
-    if (!bossUI || !enemy || enemy.type !== "boss") return;
-
-    bossUI.style.display = "block";
-
-    const percent = Math.max(
-        0,
-        enemy.health / enemy.maxHealth * 100
-    );
-
-    $("bossTitle").textContent =
-        `👑 BOSS — ${Math.ceil(enemy.health)} HP`;
-
-    $("bossBar").style.width = `${percent}%`;
-}
-
-function hideBossUI() {
-    if (bossUI) {
-        bossUI.style.display = "none";
-    }
-}
 
 /* =========================================================
-   ENEMY HEALTH BAR
-   ========================================================= */
+   HEALTH BAR
+========================================================= */
 
 function createHealthBar(enemy) {
+
     const group = new THREE.Group();
 
-    const background = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.4, 0.16),
+    const bg = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.5, .18),
         new THREE.MeshBasicMaterial({
-            color: 0x111111,
+            color: 0x222222,
             side: THREE.DoubleSide
         })
     );
+
+    group.add(bg);
+
 
     const fill = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.35, 0.11),
+        new THREE.PlaneGeometry(1.4, .12),
         new THREE.MeshBasicMaterial({
-            color: 0x32cd32,
+            color: 0x25d94f,
             side: THREE.DoubleSide
         })
     );
 
-    fill.position.z = 0.01;
+    fill.position.z = .01;
 
-    group.add(background);
     group.add(fill);
 
-    group.position.y = 2.7;
+    group.position.y = 3;
 
-    enemy.model.add(group);
+    enemy.group.add(group);
 
     enemy.healthBar = group;
     enemy.healthFill = fill;
 }
 
-function updateHealthBar(enemy) {
-    if (!enemy.healthFill) return;
-
-    const ratio = Math.max(
-        0,
-        enemy.health / enemy.maxHealth
-    );
-
-    enemy.healthFill.scale.x = ratio;
-    enemy.healthFill.position.x =
-        -0.675 + 0.675 * ratio;
-
-    enemy.healthBar.lookAt(camera.position);
-}
 
 /* =========================================================
-   CREATE ENEMY
-   ========================================================= */
+   ENEMY CREATION
+========================================================= */
 
-function createEnemy(typeName) {
-    const type = ENEMY_TYPES[typeName];
+function createEnemy(type) {
+
+    const data = ENEMY_TYPES[type];
 
     const group = new THREE.Group();
 
     const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            0.45,
-            0.55,
-            1.1,
-            8
+        new THREE.BoxGeometry(
+            1,
+            1.6,
+            1
         ),
         new THREE.MeshLambertMaterial({
-            color: type.body
+            color: data.body
         })
     );
 
-    body.position.y = 1;
+    body.position.y = 1.1;
+
     body.castShadow = true;
+
+    group.add(body);
+
 
     const head = new THREE.Mesh(
         new THREE.SphereGeometry(
-            0.45,
+            .55,
             12,
             12
         ),
         new THREE.MeshLambertMaterial({
-            color: type.head
+            color: data.head
         })
     );
 
-    head.position.y = 1.85;
+    head.position.y = 2.35;
+
     head.castShadow = true;
+
+    group.add(head);
+
 
     const eyeMaterial =
         new THREE.MeshBasicMaterial({
             color: 0xffffff
         });
 
+
     const eye1 = new THREE.Mesh(
-        new THREE.SphereGeometry(0.07, 6, 6),
+        new THREE.BoxGeometry(.13,.13,.13),
         eyeMaterial
     );
 
     const eye2 = eye1.clone();
 
-    eye1.position.set(-0.16, 1.92, -0.38);
-    eye2.position.set(0.16, 1.92, -0.38);
+    eye1.position.set(-.2, 2.4, -.5);
+    eye2.position.set(.2, 2.4, -.5);
+
+    group.add(eye1);
+    group.add(eye2);
+
 
     const armGeometry =
-        new THREE.BoxGeometry(0.2, 0.8, 0.2);
+        new THREE.BoxGeometry(.25, 1.1, .25);
+
+    const armMaterial =
+        new THREE.MeshLambertMaterial({
+            color: data.body
+        });
+
 
     const arm1 = new THREE.Mesh(
         armGeometry,
-        new THREE.MeshLambertMaterial({
-            color: type.body
-        })
+        armMaterial
     );
 
     const arm2 = arm1.clone();
 
-    arm1.position.set(-0.62, 1, 0);
-    arm2.position.set(0.62, 1, 0);
+    arm1.position.set(-.7, 1.1, 0);
+    arm2.position.set(.7, 1.1, 0);
+
+    group.add(arm1);
+    group.add(arm2);
+
 
     const legGeometry =
-        new THREE.BoxGeometry(0.25, 0.8, 0.25);
+        new THREE.BoxGeometry(.3, .8, .3);
+
 
     const leg1 = new THREE.Mesh(
         legGeometry,
-        new THREE.MeshLambertMaterial({
-            color: type.body
-        })
+        armMaterial
     );
 
     const leg2 = leg1.clone();
 
-    leg1.position.set(-0.2, 0.35, 0);
-    leg2.position.set(0.2, 0.35, 0);
+    leg1.position.set(-.25, .1, 0);
+    leg2.position.set(.25, .1, 0);
 
-    group.add(
-        body,
-        head,
-        eye1,
-        eye2,
-        arm1,
-        arm2,
-        leg1,
-        leg2
-    );
+    group.add(leg1);
+    group.add(leg2);
 
-    if (typeName === "fast") {
-        const fin = new THREE.Mesh(
-            new THREE.ConeGeometry(0.35, 0.8, 4),
-            new THREE.MeshLambertMaterial({
-                color: 0x00ffff
-            })
-        );
 
-        fin.rotation.z = Math.PI / 2;
-        fin.position.set(0, 1.6, 0.6);
+    if (type === "tank") {
 
-        group.add(fin);
-    }
-
-    if (typeName === "tank") {
         const armor = new THREE.Mesh(
-            new THREE.BoxGeometry(1.25, 1.4, 1.25),
+            new THREE.BoxGeometry(1.45, 1.9, 1.45),
             new THREE.MeshLambertMaterial({
-                color: 0x7b1fa2,
+                color: 0x777777,
                 transparent: true,
-                opacity: 0.45
+                opacity: .35
             })
         );
 
-        armor.position.y = 1.1;
+        armor.position.y = 1.2;
 
         group.add(armor);
     }
 
-    if (typeName === "boss") {
+
+    if (type === "boss") {
+
         const crown = new THREE.Mesh(
-            new THREE.ConeGeometry(0.65, 0.8, 5),
+            new THREE.ConeGeometry(
+                .9,
+                1.2,
+                5
+            ),
             new THREE.MeshLambertMaterial({
                 color: 0xffd700
             })
         );
 
-        crown.position.y = 2.55;
+        crown.position.y = 3.5;
 
         group.add(crown);
     }
 
-    group.scale.setScalar(type.scale);
+
+    group.scale.setScalar(data.scale);
 
     group.position.copy(pathPoints[0]);
-    group.position.y = 0;
 
     scene.add(group);
 
+
     const enemy = {
-        type: typeName,
-        model: group,
 
-        health: type.health,
-        maxHealth: type.health,
+        type,
 
-        speed: type.speed,
-        reward: type.reward,
+        group,
+
+        health: data.health,
+
+        maxHealth: data.health,
+
+        speed: data.speed,
+
+        reward: data.reward,
 
         pathIndex: 0,
-        alive: true
+
+        distanceTravelled: 0,
+
+        armor: data.armor,
+
+        bossTimer: 5,
+
+        speedBoostTimer: 0,
+
+        healthBar: null,
+        healthFill: null
+
     };
+
 
     createHealthBar(enemy);
 
     GAME.enemies.push(enemy);
 
-    if (typeName === "boss") {
-        updateBossUI(enemy);
-        message("👑 BOSS HAS ENTERED THE BATTLE!", 2500);
-        sound(90, 0.5, "sawtooth");
+    if (type === "boss") {
+        showBossWarning();
     }
 }
 
+
 /* =========================================================
-   WAVE GENERATION
-   ========================================================= */
+   BOSS WARNING
+========================================================= */
+
+function showBossWarning() {
+
+    message("⚠️ BOSS INCOMING!", 2500);
+
+    playSound(90, .35, "sawtooth");
+}
+
+
+/* =========================================================
+   WAVE BUILDING
+========================================================= */
 
 function buildWave(wave) {
+
     const queue = [];
 
     const amount = 4 + wave * 2;
 
     for (let i = 0; i < amount; i++) {
-        if (wave === 1) {
-            queue.push("basic");
-        } else if (wave === 2) {
-            queue.push(
-                i % 3 === 0 ? "fast" : "basic"
-            );
-        } else if (wave === 3) {
-            if (i % 5 === 0) {
-                queue.push("tank");
-            } else if (i % 3 === 0) {
-                queue.push("fast");
-            } else {
-                queue.push("basic");
-            }
-        } else {
-            const roll = Math.random();
 
-            if (roll < 0.15) {
-                queue.push("tank");
-            } else if (roll < 0.40) {
-                queue.push("fast");
-            } else {
-                queue.push("basic");
-            }
+        let type = "basic";
+
+        if (wave >= 2 && i % 4 === 0) {
+            type = "fast";
         }
+
+        if (wave >= 3 && i % 6 === 0) {
+            type = "tank";
+        }
+
+        queue.push(type);
     }
+
 
     if (wave % 5 === 0) {
         queue.push("boss");
     }
 
+
     return queue;
 }
 
-/* =========================================================
-   WAVE PREVIEW
-   ========================================================= */
-
-function showWavePreview() {
-    const queue = buildWave(GAME.wave);
-
-    const counts = {
-        basic: 0,
-        fast: 0,
-        tank: 0,
-        boss: 0
-    };
-
-    queue.forEach(type => {
-        counts[type]++;
-    });
-
-    const panel = document.createElement("div");
-
-    panel.id = "wavePreview";
-
-    panel.style.position = "fixed";
-    panel.style.left = "50%";
-    panel.style.top = "50%";
-    panel.style.transform = "translate(-50%, -50%)";
-    panel.style.background = "rgba(15,15,25,0.96)";
-    panel.style.color = "white";
-    panel.style.padding = "24px";
-    panel.style.borderRadius = "14px";
-    panel.style.border = "2px solid #777";
-    panel.style.zIndex = "50";
-    panel.style.minWidth = "280px";
-    panel.style.textAlign = "center";
-    panel.style.boxShadow = "0 10px 40px rgba(0,0,0,.5)";
-
-    panel.innerHTML = `
-        <h2 style="margin-top:0">
-            🌊 WAVE ${GAME.wave}
-        </h2>
-
-        <div style="font-size:18px;line-height:1.8">
-            🔴 Basic × ${counts.basic}<br>
-            🟢 Fast × ${counts.fast}<br>
-            🟣 Tank × ${counts.tank}<br>
-            👑 Boss × ${counts.boss}
-        </div>
-
-        <div style="margin:15px 0;font-size:18px">
-            ${getDifficultyText()}
-        </div>
-
-        <button id="previewStart"
-            style="
-                padding:12px 22px;
-                border:0;
-                border-radius:8px;
-                cursor:pointer;
-                font-weight:bold;
-            ">
-            START WAVE
-        </button>
-
-        <button id="previewCancel"
-            style="
-                padding:12px 22px;
-                margin-left:8px;
-                border:0;
-                border-radius:8px;
-                cursor:pointer;
-            ">
-            CANCEL
-        </button>
-    `;
-
-    document.body.appendChild(panel);
-
-    $("previewStart").onclick = () => {
-        panel.remove();
-        beginWave(queue);
-    };
-
-    $("previewCancel").onclick = () => {
-        panel.remove();
-    };
-}
-
-function getDifficultyText() {
-    if (GAME.wave <= 3) {
-        return "Difficulty: ⭐";
-    }
-
-    if (GAME.wave <= 6) {
-        return "Difficulty: ⭐⭐";
-    }
-
-    if (GAME.wave <= 10) {
-        return "Difficulty: ⭐⭐⭐";
-    }
-
-    if (GAME.wave <= 14) {
-        return "Difficulty: ⭐⭐⭐⭐";
-    }
-
-    return "Difficulty: ⭐⭐⭐⭐⭐";
-}
 
 /* =========================================================
    START WAVE
-   ========================================================= */
+========================================================= */
 
-function beginWave(queue) {
-    if (
-        GAME.waveRunning ||
-        GAME.gameOver ||
-        GAME.victory
-    ) {
-        return;
-    }
+function startWave() {
 
-    GAME.waveRunning = true;
-    GAME.spawnQueue = queue;
-    GAME.spawnIndex = 0;
-    GAME.spawnTimer = 0;
-
-    message(`🌊 WAVE ${GAME.wave} STARTED!`);
-
-    sound(500, 0.12);
-}
-
-/* =========================================================
-   START BUTTON
-   ========================================================= */
-
-$("startWave").onclick = () => {
     if (GAME.gameOver || GAME.victory) return;
 
-    if (GAME.waveRunning) {
-        message("Wave already running!");
+    if (GAME.waveRunning) return;
+
+    GAME.spawnQueue = buildWave(GAME.wave);
+
+    GAME.spawnIndex = 0;
+
+    GAME.spawnTimer = 0;
+
+    GAME.waveKills = 0;
+
+    GAME.waveRunning = true;
+
+    startWaveButton.disabled = true;
+
+    startWaveButton.style.opacity = ".5";
+
+    message(
+        `🌊 Wave ${GAME.wave} started!`
+    );
+
+    playSound(330, .12, "square");
+}
+
+
+/* =========================================================
+   WAVE PREVIEW
+========================================================= */
+
+function wavePreview() {
+
+    if (GAME.waveRunning) return;
+
+    const queue = buildWave(GAME.wave);
+
+    const counts = {};
+
+    queue.forEach(type => {
+
+        counts[type] =
+            (counts[type] || 0) + 1;
+
+    });
+
+
+    let text =
+        `<b>WAVE ${GAME.wave}</b><br><br>`;
+
+    Object.keys(counts).forEach(type => {
+
+        text +=
+            `${ENEMY_TYPES[type].name}: ${counts[type]}<br>`;
+
+    });
+
+
+    text +=
+        `<br>Difficulty: ${
+            GAME.wave < 5
+                ? "Easy"
+                : GAME.wave < 10
+                    ? "Medium"
+                    : "Hard"
+        }`;
+
+
+    openPanel(
+        "🌊 WAVE PREVIEW",
+        text,
+        [
+            {
+                text: "START WAVE",
+                action: startWave
+            },
+            {
+                text: "CLOSE",
+                action: closePanel
+            }
+        ]
+    );
+}
+
+
+/* =========================================================
+   SPAWNING
+========================================================= */
+
+function updateSpawning(delta) {
+
+    if (!GAME.waveRunning) return;
+
+    if (
+        GAME.spawnIndex >=
+        GAME.spawnQueue.length
+    ) {
+
+        if (GAME.enemies.length === 0) {
+            finishWave();
+        }
+
         return;
     }
 
-    showWavePreview();
-};
+
+    GAME.spawnTimer -= delta;
+
+    if (GAME.spawnTimer <= 0) {
+
+        const type =
+            GAME.spawnQueue[GAME.spawnIndex];
+
+        createEnemy(type);
+
+        GAME.spawnIndex++;
+
+        GAME.spawnTimer = .8;
+    }
+}
+
 
 /* =========================================================
-   CREATE TOWER
-   ========================================================= */
+   ENEMY UPDATE
+========================================================= */
 
-function createTower(typeName, position) {
-    const type = TOWER_TYPES[typeName];
+function updateEnemies(delta) {
 
-    if (GAME.coins < type.cost) {
-        message("❌ Not enough coins!");
-        return null;
+    for (
+        let i = GAME.enemies.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const enemy = GAME.enemies[i];
+
+        let speed = enemy.speed;
+
+
+        /* FAST ENEMY SPECIAL */
+        if (enemy.type === "fast") {
+
+            enemy.speedBoostTimer -= delta;
+
+            if (enemy.speedBoostTimer <= 0) {
+
+                enemy.speedBoostTimer = 5;
+
+                if (Math.random() < .35) {
+
+                    enemy.speedBoostTimer = 1.2;
+
+                    enemy.speedBoostActive = true;
+                }
+            }
+
+            if (enemy.speedBoostActive) {
+
+                speed *= 1.7;
+
+                enemy.speedBoostTimer -= delta;
+
+                if (enemy.speedBoostTimer <= 0) {
+                    enemy.speedBoostActive = false;
+                    enemy.speedBoostTimer = 5;
+                }
+            }
+        }
+
+
+        /* BOSS SPECIAL */
+        if (enemy.type === "boss") {
+
+            enemy.bossTimer -= delta;
+
+            if (enemy.bossTimer <= 0) {
+
+                enemy.bossTimer = 7;
+
+                bossAbility(enemy);
+            }
+        }
+
+
+        const target =
+            pathPoints[enemy.pathIndex + 1];
+
+
+        if (!target) {
+
+            reachBase(enemy);
+
+            continue;
+        }
+
+
+        const direction =
+            target.clone()
+                .sub(enemy.group.position)
+                .normalize();
+
+
+        enemy.group.position.addScaledVector(
+            direction,
+            speed * delta
+        );
+
+
+        enemy.distanceTravelled +=
+            speed * delta;
+
+
+        if (
+            enemy.group.position.distanceTo(target)
+            < .35
+        ) {
+
+            enemy.pathIndex++;
+        }
+
+
+        if (enemy.healthBar) {
+
+            enemy.healthBar.lookAt(
+                camera.position
+            );
+
+            const ratio =
+                Math.max(
+                    0,
+                    enemy.health /
+                    enemy.maxHealth
+                );
+
+            enemy.healthFill.scale.x =
+                ratio;
+
+            enemy.healthFill.position.x =
+                -(1.4 * (1 - ratio)) / 2;
+        }
+    }
+}
+
+
+/* =========================================================
+   BOSS ABILITY
+========================================================= */
+
+function bossAbility(boss) {
+
+    message("👑 BOSS ROAR!");
+
+    playSound(70, .45, "sawtooth");
+
+
+    GAME.towers.forEach(tower => {
+
+        const distance =
+            tower.mesh.position.distanceTo(
+                boss.group.position
+            );
+
+        if (distance < 8) {
+
+            tower.stunned =
+                2.5;
+        }
+    });
+
+
+    createExplosion(
+        boss.group.position.clone(),
+        0xff2200,
+        2.5
+    );
+}
+
+
+/* =========================================================
+   REACH BASE
+========================================================= */
+
+function reachBase(enemy) {
+
+    const damage =
+        enemy.type === "boss"
+            ? 20
+            : 10;
+
+    GAME.baseHealth -= damage;
+
+    GAME.baseHealth =
+        Math.max(
+            0,
+            GAME.baseHealth
+        );
+
+    updateHUD();
+
+    createExplosion(
+        enemy.group.position.clone(),
+        0xff3333,
+        1.2
+    );
+
+    removeEnemy(enemy);
+
+    if (GAME.baseHealth <= 0) {
+        gameOver();
+    }
+}
+
+
+/* =========================================================
+   REMOVE ENEMY
+========================================================= */
+
+function removeEnemy(enemy) {
+
+    const index =
+        GAME.enemies.indexOf(enemy);
+
+    if (index !== -1) {
+        GAME.enemies.splice(index, 1);
     }
 
-    GAME.coins -= type.cost;
+    scene.remove(enemy.group);
+}
 
-    const group = new THREE.Group();
+
+/* =========================================================
+   DAMAGE ENEMY
+========================================================= */
+
+function damageEnemy(enemy, amount, towerType) {
+
+    if (!GAME.enemies.includes(enemy)) {
+        return;
+    }
+
+
+    const data =
+        ENEMY_TYPES[enemy.type];
+
+
+    /* TYPE BONUSES */
+
+    if (
+        towerType === "archer" &&
+        enemy.type === "fast"
+    ) {
+        amount *= 1.25;
+    }
+
+
+    if (
+        towerType === "cannon" &&
+        enemy.type === "tank"
+    ) {
+        amount *= 1.35;
+    }
+
+
+    if (
+        towerType === "magic" &&
+        enemy.type === "boss"
+    ) {
+        amount *= 1.15;
+    }
+
+
+    /* ARMOR */
+
+    amount *=
+        1 - enemy.armor;
+
+
+    enemy.health -= amount;
+
+
+    createDamageNumber(
+        enemy.group.position.clone(),
+        Math.round(amount)
+    );
+
+
+    createHitEffect(
+        enemy.group.position.clone()
+    );
+
+
+    if (enemy.health <= 0) {
+
+        killEnemy(enemy, towerType);
+    }
+}
+
+
+/* =========================================================
+   KILL ENEMY
+========================================================= */
+
+function killEnemy(enemy, towerType) {
+
+    if (!GAME.enemies.includes(enemy)) {
+        return;
+    }
+
+
+    GAME.coins += enemy.reward;
+
+    GAME.xp +=
+        enemy.type === "boss"
+            ? 100
+            : enemy.type === "tank"
+                ? 30
+                : 10;
+
+
+    GAME.waveKills++;
+
+    GAME.totalKills++;
+
+
+    checkAchievements(enemy);
+
+
+    createExplosion(
+        enemy.group.position.clone(),
+        enemy.type === "boss"
+            ? 0xffaa00
+            : 0xffffff,
+        enemy.type === "boss"
+            ? 3
+            : 1
+    );
+
+
+    playSound(
+        enemy.type === "boss"
+            ? 120
+            : 500,
+        .08,
+        "square"
+    );
+
+
+    removeEnemy(enemy);
+
+    updateHUD();
+}
+
+
+/* =========================================================
+   TOWER CREATION
+========================================================= */
+
+function createTower(type, position) {
+
+    const data =
+        TOWER_TYPES[type];
+
+
+    const group =
+        new THREE.Group();
+
 
     const body = new THREE.Mesh(
         new THREE.CylinderGeometry(
-            0.7,
-            0.8,
-            0.8,
+            .9,
+            1.1,
+            1.4,
             8
         ),
         new THREE.MeshLambertMaterial({
-            color: type.bodyColor
+            color: data.color
         })
     );
 
-    body.position.y = 0.7;
+    body.position.y = .7;
+
     body.castShadow = true;
 
+    group.add(body);
+
+
+    const turret = new THREE.Group();
+
+    turret.position.y = 1.25;
+
+    group.add(turret);
+
+
     const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.65, 10, 10),
-        new THREE.MeshLambertMaterial({
-            color: type.headColor
-        })
-    );
-
-    head.position.y = 1.35;
-    head.castShadow = true;
-
-    const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            0.18,
-            0.18,
-            1.6,
-            8
+        new THREE.BoxGeometry(
+            1.1,
+            .7,
+            1.1
         ),
         new THREE.MeshLambertMaterial({
-            color: type.barrelColor
+            color: data.color
         })
     );
 
-    barrel.rotation.z = Math.PI / 2;
-    barrel.position.set(0.8, 1.35, 0);
+    turret.add(head);
 
-    barrel.castShadow = true;
 
-    group.add(body);
-    group.add(head);
-    group.add(barrel);
+    const barrel = new THREE.Mesh(
+        new THREE.BoxGeometry(
+            .25,
+            .25,
+            1.6
+        ),
+        new THREE.MeshLambertMaterial({
+            color: 0x222222
+        })
+    );
+
+    barrel.position.z = -.8;
+
+    turret.add(barrel);
+
 
     group.position.copy(position);
 
     scene.add(group);
 
+
     const tower = {
-        type: typeName,
+
+        type,
+
         mesh: group,
+
+        turret,
 
         level: 1,
 
-        range: type.range,
-        damage: type.damage,
-        fireRate: type.fireRate,
-
         cooldown: 0,
 
-        targeting: "first",
-
         abilityCooldown: 0,
-        abilityActive: false,
 
-        spent: type.cost,
+        targetMode: "First",
 
-        barrel
+        spent: data.cost,
+
+        stunned: 0
+
     };
 
+
     GAME.towers.push(tower);
-
-    group.userData.tower = tower;
-
-    updateHUD();
-
-    message(`${type.icon} ${type.name} placed!`);
-
-    sound(700, 0.08);
 
     return tower;
 }
 
-/* =========================================================
-   TOWER STATS
-   ========================================================= */
-
-function updateTowerStats(tower) {
-    const base = TOWER_TYPES[tower.type];
-    const multiplier = LEVEL_STATS[tower.level - 1];
-
-    tower.damage =
-        base.damage * multiplier.damage;
-
-    tower.range =
-        base.range * multiplier.range;
-
-    tower.fireRate =
-        base.fireRate * multiplier.fireRate;
-}
-
-/* =========================================================
-   TOWER MENU
-   ========================================================= */
-
-let towerMenu = null;
-
-function openTowerMenu() {
-    if (towerMenu) return;
-
-    towerMenu = document.createElement("div");
-
-    towerMenu.style.position = "fixed";
-    towerMenu.style.bottom = "90px";
-    towerMenu.style.left = "50%";
-    towerMenu.style.transform = "translateX(-50%)";
-    towerMenu.style.background = "rgba(20,20,25,.96)";
-    towerMenu.style.padding = "12px";
-    towerMenu.style.borderRadius = "12px";
-    towerMenu.style.display = "flex";
-    towerMenu.style.gap = "8px";
-    towerMenu.style.zIndex = "30";
-
-    Object.entries(TOWER_TYPES).forEach(
-        ([key, type]) => {
-
-            const button =
-                document.createElement("button");
-
-            button.textContent =
-                `${type.icon} ${type.name} ${type.cost}💰`;
-
-            button.style.padding = "10px";
-            button.style.cursor = "pointer";
-
-            button.onclick = () => {
-                GAME.selectedTowerType = key;
-                GAME.towerMode = true;
-
-                towerMenu.remove();
-                towerMenu = null;
-
-                message(
-                    `Click the ground to place a ${type.name}.`
-                );
-            };
-
-            towerMenu.appendChild(button);
-        }
-    );
-
-    const close = document.createElement("button");
-
-    close.textContent = "✖";
-
-    close.onclick = () => {
-        towerMenu.remove();
-        towerMenu = null;
-    };
-
-    towerMenu.appendChild(close);
-
-    document.body.appendChild(towerMenu);
-}
-
-/* =========================================================
-   TOWER BUTTON
-   ========================================================= */
-
-$("towerButton").onclick = () => {
-    if (GAME.gameOver || GAME.victory) return;
-
-    if (GAME.towerMode) {
-        GAME.towerMode = false;
-        GAME.selectedTowerType = null;
-
-        message("Tower placement cancelled.");
-        return;
-    }
-
-    openTowerMenu();
-};
-
-/* =========================================================
-   TOWER SELECTION PANEL
-   ========================================================= */
-
-let towerPanel = null;
-
-function closeTowerPanel() {
-    if (towerPanel) {
-        towerPanel.remove();
-        towerPanel = null;
-    }
-
-    GAME.selectedTower = null;
-}
-
-function openTowerPanel(tower) {
-    closeTowerPanel();
-
-    GAME.selectedTower = tower;
-
-    const type = TOWER_TYPES[tower.type];
-
-    towerPanel = document.createElement("div");
-
-    towerPanel.style.position = "fixed";
-    towerPanel.style.right = "15px";
-    towerPanel.style.top = "100px";
-    towerPanel.style.width = "250px";
-    towerPanel.style.background = "rgba(20,20,25,.97)";
-    towerPanel.style.color = "white";
-    towerPanel.style.padding = "16px";
-    towerPanel.style.borderRadius = "12px";
-    towerPanel.style.zIndex = "40";
-
-    towerPanel.innerHTML = `
-        <button id="closeTowerPanel"
-            style="float:right">✖</button>
-
-        <h2>
-            ${type.icon} ${type.name}
-        </h2>
-
-        <div id="towerPanelStats"></div>
-
-        <div style="margin-top:10px">
-            Target:
-        </div>
-
-        <select id="targetSelect"
-            style="width:100%;padding:8px;margin-top:5px">
-
-            <option value="first">First</option>
-            <option value="last">Last</option>
-            <option value="strongest">Strongest</option>
-            <option value="closest">Closest</option>
-
-        </select>
-
-        <button id="upgradeTower"
-            style="
-                width:100%;
-                margin-top:12px;
-                padding:10px;
-            ">
-        </button>
-
-        <button id="abilityTower"
-            style="
-                width:100%;
-                margin-top:8px;
-                padding:10px;
-            ">
-        </button>
-
-        <button id="sellTower"
-            style="
-                width:100%;
-                margin-top:8px;
-                padding:10px;
-            ">
-            💰 SELL
-        </button>
-    `;
-
-    document.body.appendChild(towerPanel);
-
-    $("closeTowerPanel").onclick =
-        closeTowerPanel;
-
-    $("targetSelect").value =
-        tower.targeting;
-
-    $("targetSelect").onchange = e => {
-        tower.targeting = e.target.value;
-
-        message(
-            `🎯 Targeting: ${e.target.options[e.target.selectedIndex].text}`
-        );
-    };
-
-    $("upgradeTower").onclick = () => {
-        upgradeTower(tower);
-    };
-
-    $("abilityTower").onclick = () => {
-        activateAbility(tower);
-    };
-
-    $("sellTower").onclick = () => {
-        sellTower(tower);
-    };
-
-    updateTowerPanel();
-}
-
-function updateTowerPanel() {
-    if (!towerPanel || !GAME.selectedTower) {
-        return;
-    }
-
-    const tower = GAME.selectedTower;
-    const type = TOWER_TYPES[tower.type];
-
-    const upgradeCost =
-        tower.level < 3
-            ? UPGRADE_COSTS[tower.type][tower.level]
-            : 0;
-
-    const stats = $("towerPanelStats");
-
-    stats.innerHTML = `
-        <b>Level:</b> ${tower.level}/3<br>
-        <b>Damage:</b> ${Math.round(tower.damage)}<br>
-        <b>Range:</b> ${tower.range.toFixed(1)}<br>
-        <b>Attack:</b> ${tower.fireRate.toFixed(2)}s<br>
-        <b>Ability:</b> ${type.abilityName}
-    `;
-
-    const upgradeButton =
-        $("upgradeTower");
-
-    if (tower.level >= 3) {
-        upgradeButton.textContent =
-            "⭐ MAX LEVEL";
-        upgradeButton.disabled = true;
-    } else {
-        upgradeButton.textContent =
-            `⬆️ UPGRADE — ${upgradeCost}💰`;
-
-        upgradeButton.disabled =
-            GAME.coins < upgradeCost;
-    }
-
-    const abilityButton =
-        $("abilityTower");
-
-    if (tower.abilityCooldown > 0) {
-        abilityButton.textContent =
-            `⚡ ${type.abilityName} — ${tower.abilityCooldown.toFixed(1)}s`;
-    } else {
-        abilityButton.textContent =
-            `⚡ ${type.abilityName} READY`;
-    }
-}
-
-/* =========================================================
-   UPGRADE
-   ========================================================= */
-
-function upgradeTower(tower) {
-    if (tower.level >= 3) {
-        message("⭐ Tower is already max level!");
-        return;
-    }
-
-    const cost =
-        UPGRADE_COSTS[tower.type][tower.level];
-
-    if (GAME.coins < cost) {
-        message("❌ Not enough coins!");
-        return;
-    }
-
-    GAME.coins -= cost;
-
-    tower.level++;
-    tower.spent += cost;
-
-    updateTowerStats(tower);
-
-    const scale =
-        1 + 0.08 * (tower.level - 1);
-
-    tower.mesh.scale.setScalar(scale);
-
-    message(
-        `⬆️ ${TOWER_TYPES[tower.type].name} upgraded to Level ${tower.level}!`
-    );
-
-    sound(850, 0.15);
-
-    updateHUD();
-    updateTowerPanel();
-}
-
-/* =========================================================
-   SELL
-   ========================================================= */
-
-function sellTower(tower) {
-    const refund =
-        Math.floor(tower.spent * 0.6);
-
-    GAME.coins += refund;
-
-    scene.remove(tower.mesh);
-
-    const index =
-        GAME.towers.indexOf(tower);
-
-    if (index !== -1) {
-        GAME.towers.splice(index, 1);
-    }
-
-    closeTowerPanel();
-
-    message(`💰 Tower sold for ${refund} coins.`);
-
-    sound(300, 0.1);
-
-    updateHUD();
-}
 
 /* =========================================================
    TARGETING
-   ========================================================= */
+========================================================= */
 
-function selectTarget(tower) {
-    const valid = GAME.enemies.filter(enemy => {
-        if (!enemy.alive) return false;
+function getTarget(tower) {
 
-        const distance =
-            tower.mesh.position.distanceTo(
-                enemy.model.position
+    const data =
+        TOWER_TYPES[tower.type];
+
+
+    const available =
+        GAME.enemies.filter(enemy => {
+
+            return enemy.group.position
+                .distanceTo(tower.mesh.position)
+                <= data.range;
+
+        });
+
+
+    if (!available.length) {
+        return null;
+    }
+
+
+    switch (tower.targetMode) {
+
+        case "First":
+
+            return available.reduce(
+                (best, enemy) =>
+                    enemy.pathIndex >
+                    best.pathIndex
+                        ? enemy
+                        : best
             );
 
-        return distance <= tower.range;
-    });
 
-    if (!valid.length) return null;
+        case "Last":
 
-    if (tower.targeting === "strongest") {
-        return valid.reduce(
-            (best, enemy) =>
-                enemy.health > best.health
-                    ? enemy
-                    : best
-        );
+            return available.reduce(
+                (best, enemy) =>
+                    enemy.pathIndex <
+                    best.pathIndex
+                        ? enemy
+                        : best
+            );
+
+
+        case "Strongest":
+
+            return available.reduce(
+                (best, enemy) =>
+                    enemy.health >
+                    best.health
+                        ? enemy
+                        : best
+            );
+
+
+        case "Closest":
+
+            return available.reduce(
+                (best, enemy) => {
+
+                    const d1 =
+                        enemy.group.position
+                            .distanceTo(
+                                tower.mesh.position
+                            );
+
+                    const d2 =
+                        best.group.position
+                            .distanceTo(
+                                tower.mesh.position
+                            );
+
+                    return d1 < d2
+                        ? enemy
+                        : best;
+
+                }
+            );
+
     }
 
-    if (tower.targeting === "closest") {
-        return valid.reduce(
-            (best, enemy) =>
-                tower.mesh.position.distanceTo(
-                    enemy.model.position
-                ) <
-                tower.mesh.position.distanceTo(
-                    best.model.position
-                )
-                    ? enemy
-                    : best
-        );
-    }
-
-    if (tower.targeting === "last") {
-        return valid.reduce(
-            (best, enemy) =>
-                enemy.pathIndex < best.pathIndex
-                    ? enemy
-                    : best
-        );
-    }
-
-    return valid.reduce(
-        (best, enemy) =>
-            enemy.pathIndex > best.pathIndex
-                ? enemy
-                : best
-    );
+    return available[0];
 }
 
+
 /* =========================================================
-   PROJECTILE
-   ========================================================= */
+   TOWER UPDATE
+========================================================= */
+
+function updateTowers(delta) {
+
+    GAME.towers.forEach(tower => {
+
+        if (tower.stunned > 0) {
+
+            tower.stunned -= delta;
+
+            return;
+        }
+
+
+        tower.cooldown -= delta;
+
+        tower.abilityCooldown -= delta;
+
+
+        const target =
+            getTarget(tower);
+
+
+        if (!target) {
+            return;
+        }
+
+
+        const targetPosition =
+            target.group.position.clone();
+
+
+        targetPosition.y = tower.turret.position.y;
+
+
+        tower.turret.lookAt(
+            targetPosition
+        );
+
+
+        if (tower.cooldown <= 0) {
+
+            fireProjectile(
+                tower,
+                target
+            );
+
+            const data =
+                TOWER_TYPES[tower.type];
+
+
+            const levelMultiplier =
+                tower.level === 1
+                    ? 1
+                    : tower.level === 2
+                        ? .82
+                        : .68;
+
+
+            tower.cooldown =
+                data.fireRate *
+                levelMultiplier;
+        }
+    });
+}
+
+
+/* =========================================================
+   PROJECTILES
+========================================================= */
 
 function fireProjectile(tower, target) {
-    const type = TOWER_TYPES[tower.type];
+
+    const data =
+        TOWER_TYPES[tower.type];
+
 
     const projectile = new THREE.Mesh(
+
         new THREE.SphereGeometry(
-            type.projectileSize,
+            tower.type === "cannon"
+                ? .22
+                : .14,
             8,
             8
         ),
+
         new THREE.MeshBasicMaterial({
-            color:
-                tower.type === "archer"
-                    ? 0x00bfff
-                    : tower.type === "cannon"
-                        ? 0xff9800
-                        : 0xff00ff
+            color: data.color
         })
+
     );
+
 
     projectile.position.copy(
         tower.mesh.position
     );
 
-    projectile.position.y += 1.4;
+    projectile.position.y += 1.5;
 
     scene.add(projectile);
 
+
     GAME.projectiles.push({
+
         mesh: projectile,
-        tower,
+
         target,
-        speed: type.projectileSpeed
+
+        tower,
+
+        speed: data.projectileSpeed
+
+    });
+}
+
+
+/* =========================================================
+   PROJECTILE UPDATE
+========================================================= */
+
+function updateProjectiles(delta) {
+
+    for (
+        let i = GAME.projectiles.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const projectile =
+            GAME.projectiles[i];
+
+
+        if (
+            !GAME.enemies.includes(
+                projectile.target
+            )
+        ) {
+
+            scene.remove(projectile.mesh);
+
+            GAME.projectiles.splice(i, 1);
+
+            continue;
+        }
+
+
+        const target =
+            projectile.target.group.position;
+
+
+        const direction =
+            target.clone()
+                .sub(projectile.mesh.position);
+
+
+        const distance =
+            direction.length();
+
+
+        if (distance < .5) {
+
+            const tower =
+                projectile.tower;
+
+            const data =
+                TOWER_TYPES[tower.type];
+
+
+            let damage =
+                data.damage;
+
+
+            if (tower.level === 2) {
+                damage *= 1.5;
+            }
+
+            if (tower.level === 3) {
+                damage *= 2.2;
+            }
+
+
+            damageEnemy(
+                projectile.target,
+                damage,
+                tower.type
+            );
+
+
+            scene.remove(
+                projectile.mesh
+            );
+
+            GAME.projectiles.splice(
+                i,
+                1
+            );
+
+            continue;
+        }
+
+
+        direction.normalize();
+
+
+        projectile.mesh.position.addScaledVector(
+            direction,
+            projectile.speed * delta
+        );
+    }
+}
+
+
+/* =========================================================
+   SPECIAL ABILITIES
+========================================================= */
+
+function useAbility(tower) {
+
+    if (
+        tower.abilityCooldown > 0 ||
+        tower.stunned > 0
+    ) {
+        return;
+    }
+
+
+    if (tower.type === "archer") {
+
+        const target =
+            getTarget(tower);
+
+        if (!target) return;
+
+
+        for (let i = 0; i < 6; i++) {
+
+            setTimeout(() => {
+
+                if (
+                    GAME.enemies.includes(target)
+                ) {
+
+                    damageEnemy(
+                        target,
+                        TOWER_TYPES.archer.damage,
+                        "archer"
+                    );
+
+                }
+
+            }, i * 100);
+        }
+
+
+        tower.abilityCooldown = 15;
+
+        message("⚡ RAPID FIRE!");
+
+    }
+
+
+    else if (tower.type === "cannon") {
+
+        const center =
+            tower.mesh.position;
+
+
+        GAME.enemies.forEach(enemy => {
+
+            const distance =
+                enemy.group.position
+                    .distanceTo(center);
+
+
+            if (distance <= 3.5) {
+
+                damageEnemy(
+                    enemy,
+                    TOWER_TYPES.cannon.damage * 2.5,
+                    "cannon"
+                );
+
+            }
+        });
+
+
+        createExplosion(
+            center.clone(),
+            0xff6600,
+            3.5
+        );
+
+
+        tower.abilityCooldown = 20;
+
+        message("💥 BIG BLAST!");
+
+    }
+
+
+    else if (tower.type === "magic") {
+
+        const targets =
+            GAME.enemies
+                .filter(enemy =>
+                    enemy.group.position
+                        .distanceTo(
+                            tower.mesh.position
+                        ) <= 10
+                )
+                .slice(0, 5);
+
+
+        targets.forEach(enemy => {
+
+            damageEnemy(
+                enemy,
+                TOWER_TYPES.magic.damage * 2,
+                "magic"
+            );
+
+            createLightning(
+                tower.mesh.position.clone(),
+                enemy.group.position.clone()
+            );
+
+        });
+
+
+        tower.abilityCooldown = 18;
+
+        message("⚡ LIGHTNING!");
+    }
+}
+
+
+/* =========================================================
+   UPGRADE SYSTEM
+========================================================= */
+
+const UPGRADE_COSTS = {
+
+    archer: [0, 75, 125],
+
+    cannon: [0, 125, 200],
+
+    magic: [0, 175, 275]
+
+};
+
+
+function upgradeTower(tower) {
+
+    if (!tower) return;
+
+
+    if (tower.level >= 3) {
+
+        message("⭐ MAX LEVEL!");
+
+        return;
+    }
+
+
+    const cost =
+        UPGRADE_COSTS[tower.type]
+            [tower.level];
+
+
+    if (GAME.coins < cost) {
+
+        message("❌ NOT ENOUGH COINS!");
+
+        return;
+    }
+
+
+    GAME.coins -= cost;
+
+    tower.level++;
+
+
+    tower.mesh.scale.setScalar(
+        1 + .08 * (tower.level - 1)
+    );
+
+
+    tower.spent += cost;
+
+
+    message(
+        `⬆️ ${TOWER_TYPES[tower.type].name} LEVEL ${tower.level}!`
+    );
+
+
+    updateHUD();
+    openTowerPanel(tower);
+}
+
+
+/* =========================================================
+   SELL
+========================================================= */
+
+function sellTower(tower) {
+
+    if (!tower) return;
+
+
+    const refund =
+        Math.floor(
+            tower.spent * .6
+        );
+
+
+    GAME.coins += refund;
+
+
+    scene.remove(tower.mesh);
+
+
+    const index =
+        GAME.towers.indexOf(tower);
+
+
+    if (index !== -1) {
+        GAME.towers.splice(index, 1);
+    }
+
+
+    GAME.selectedTower = null;
+
+    closePanel();
+
+
+    message(
+        `💰 Sold for ${refund} coins`
+    );
+
+
+    updateHUD();
+}
+
+
+/* =========================================================
+   TOWER PANEL
+========================================================= */
+
+function openTowerPanel(tower) {
+
+    GAME.selectedTower = tower;
+
+    const data =
+        TOWER_TYPES[tower.type];
+
+
+    const nextCost =
+        tower.level < 3
+            ? UPGRADE_COSTS[tower.type][tower.level]
+            : 0;
+
+
+    const abilityText =
+        tower.abilityCooldown <= 0
+            ? "READY"
+            : `${tower.abilityCooldown.toFixed(1)}s`;
+
+
+    openPanel(
+
+        `🏰 ${data.name} TOWER`,
+
+        `
+        <b>Level:</b> ${tower.level}/3<br>
+        <b>Damage:</b> ${Math.round(
+            data.damage *
+            (tower.level === 1
+                ? 1
+                : tower.level === 2
+                    ? 1.5
+                    : 2.2)
+        )}<br>
+        <b>Range:</b> ${data.range}<br>
+        <b>Target:</b> ${tower.targetMode}<br>
+        <b>Ability:</b> ${data.ability}<br>
+        <b>Ability:</b> ${abilityText}
+        `,
+
+        [
+
+            {
+                text:
+                    tower.level < 3
+                        ? `⬆️ UPGRADE (${nextCost})`
+                        : "⭐ MAX LEVEL",
+
+                action: () => {
+
+                    if (tower.level < 3) {
+                        upgradeTower(tower);
+                    }
+                }
+            },
+
+            {
+                text:
+                    `🎯 TARGET: ${tower.targetMode}`,
+
+                action: () => {
+
+                    cycleTargetMode(tower);
+
+                    openTowerPanel(tower);
+                }
+            },
+
+            {
+                text:
+                    `⚡ ${data.ability}`,
+
+                action: () => {
+
+                    useAbility(tower);
+
+                    openTowerPanel(tower);
+                }
+            },
+
+            {
+                text:
+                    "💰 SELL",
+
+                action: () => {
+                    sellTower(tower);
+                }
+            },
+
+            {
+                text:
+                    "CLOSE",
+
+                action: closePanel
+            }
+
+        ]
+    );
+}
+
+
+/* =========================================================
+   TARGET MODE
+========================================================= */
+
+function cycleTargetMode(tower) {
+
+    const modes =
+        GAME.targetModes;
+
+    const index =
+        modes.indexOf(
+            tower.targetMode
+        );
+
+
+    tower.targetMode =
+        modes[
+            (index + 1) %
+            modes.length
+        ];
+
+
+    message(
+        `🎯 Targeting: ${tower.targetMode}`
+    );
+}
+
+
+/* =========================================================
+   TOWER MENU
+========================================================= */
+
+function openTowerMenu() {
+
+    openPanel(
+
+        "🏰 BUILD TOWER",
+
+        `
+        Choose a tower to place.
+
+        <br><br>
+
+        🏹 Archer — 50<br>
+        💣 Cannon — 100<br>
+        🔮 Magic — 150
+        `,
+
+        [
+
+            {
+                text: "🏹 ARCHER — 50",
+
+                action: () => {
+
+                    GAME.selectedTowerType =
+                        "archer";
+
+                    GAME.towerMode = true;
+
+                    closePanel();
+
+                    message(
+                        "Click the map to place Archer"
+                    );
+                }
+            },
+
+            {
+                text: "💣 CANNON — 100",
+
+                action: () => {
+
+                    GAME.selectedTowerType =
+                        "cannon";
+
+                    GAME.towerMode = true;
+
+                    closePanel();
+
+                    message(
+                        "Click the map to place Cannon"
+                    );
+                }
+            },
+
+            {
+                text: "🔮 MAGIC — 150",
+
+                action: () => {
+
+                    GAME.selectedTowerType =
+                        "magic";
+
+                    GAME.towerMode = true;
+
+                    closePanel();
+
+                    message(
+                        "Click the map to place Magic"
+                    );
+                }
+            },
+
+            {
+                text: "CLOSE",
+                action: closePanel
+            }
+
+        ]
+    );
+}
+
+
+/* =========================================================
+   GENERIC PANEL
+========================================================= */
+
+let currentPanel = null;
+
+
+function openPanel(title, content, buttons) {
+
+    closePanel();
+
+
+    const panel =
+        document.createElement("div");
+
+
+    panel.style.position = "fixed";
+    panel.style.top = "50%";
+    panel.style.left = "50%";
+
+    panel.style.transform =
+        "translate(-50%, -50%)";
+
+    panel.style.zIndex = "100";
+
+    panel.style.width = "min(380px, 92vw)";
+
+    panel.style.padding = "22px";
+
+    panel.style.borderRadius = "18px";
+
+    panel.style.background =
+        "rgba(12,18,30,.96)";
+
+    panel.style.color = "white";
+
+    panel.style.boxShadow =
+        "0 20px 60px rgba(0,0,0,.5)";
+
+    panel.style.border =
+        "1px solid rgba(255,255,255,.15)";
+
+
+    const heading =
+        document.createElement("h2");
+
+    heading.innerHTML = title;
+
+    heading.style.marginBottom = "14px";
+
+    panel.appendChild(heading);
+
+
+    const contentDiv =
+        document.createElement("div");
+
+    contentDiv.innerHTML = content;
+
+    contentDiv.style.lineHeight = "1.7";
+
+    contentDiv.style.marginBottom = "18px";
+
+    panel.appendChild(contentDiv);
+
+
+    buttons.forEach(buttonData => {
+
+        const button =
+            document.createElement("button");
+
+        button.textContent =
+            buttonData.text;
+
+        button.style.width = "100%";
+        button.style.marginTop = "7px";
+
+        button.addEventListener(
+            "click",
+            buttonData.action
+        );
+
+        panel.appendChild(button);
     });
 
-    sound(
-        tower.type === "magic"
-            ? 900
-            : tower.type === "cannon"
-                ? 180
-                : 600,
-        0.05
-    );
+
+    document.body.appendChild(panel);
+
+    currentPanel = panel;
 }
 
+
+function closePanel() {
+
+    if (currentPanel) {
+
+        currentPanel.remove();
+
+        currentPanel = null;
+    }
+}
+
+
 /* =========================================================
-   DAMAGE
-   ========================================================= */
+   ACHIEVEMENTS
+========================================================= */
 
-function damageEnemy(enemy, amount, tower) {
-    if (!enemy.alive) return;
+const ACHIEVEMENTS = {
 
-    let damage = amount;
+    firstBlood: {
+        name: "🩸 First Blood",
+        description: "Defeat your first enemy.",
+        unlocked: false
+    },
 
-    if (
-        tower.type === "archer" &&
-        enemy.type === "fast"
-    ) {
-        damage *= 1.25;
+    bossSlayer: {
+        name: "👑 Boss Slayer",
+        description: "Defeat a boss.",
+        unlocked: false
+    },
+
+    towerMaster: {
+        name: "🏰 Tower Master",
+        description: "Reach level 3 with a tower.",
+        unlocked: false
+    },
+
+    survivor: {
+        name: "❤️ Survivor",
+        description: "Finish a wave without losing base health.",
+        unlocked: false
+    },
+
+    rich: {
+        name: "💰 Rich",
+        description: "Reach 500 coins.",
+        unlocked: false
+    },
+
+    champion: {
+        name: "🏆 Champion",
+        description: "Complete 15 waves.",
+        unlocked: false
     }
 
-    if (
-        tower.type === "cannon" &&
-        enemy.type === "tank"
-    ) {
-        damage *= 1.35;
+};
+
+
+function checkAchievements(enemy) {
+
+    if (GAME.totalKills >= 1) {
+        unlockAchievement("firstBlood");
     }
 
-    if (
-        tower.type === "magic" &&
-        enemy.type === "boss"
-    ) {
-        damage *= 1.15;
-    }
-
-    enemy.health -= damage;
-
-    createHitEffect(
-        enemy.model.position.clone(),
-        tower.type
-    );
 
     if (enemy.type === "boss") {
-        updateBossUI(enemy);
+        unlockAchievement("bossSlayer");
     }
 
-    updateHealthBar(enemy);
 
-    if (enemy.health <= 0) {
-        destroyEnemy(enemy);
+    GAME.towers.forEach(tower => {
+
+        if (tower.level >= 3) {
+            unlockAchievement("towerMaster");
+        }
+    });
+
+
+    if (GAME.coins >= 500) {
+        unlockAchievement("rich");
     }
 }
 
-/* =========================================================
-   HIT EFFECT
-   ========================================================= */
 
-function createHitEffect(position, type) {
-    const color =
-        type === "magic"
-            ? 0xff00ff
-            : type === "cannon"
-                ? 0xff9800
-                : 0x00bfff;
+function unlockAchievement(id) {
+
+    const achievement =
+        ACHIEVEMENTS[id];
+
+
+    if (!achievement.unlocked) {
+
+        achievement.unlocked = true;
+
+        message(
+            `🏆 Achievement Unlocked: ${achievement.name}`,
+            3000
+        );
+
+        playSound(800, .2, "square");
+
+        saveGame();
+    }
+}
+
+
+function showAchievements() {
+
+    let content = "";
+
+    Object.keys(ACHIEVEMENTS).forEach(id => {
+
+        const a =
+            ACHIEVEMENTS[id];
+
+        content += `
+
+            <div style="
+                margin-bottom:12px;
+                padding:10px;
+                border-radius:10px;
+                background:${
+                    a.unlocked
+                        ? "rgba(45,180,80,.2)"
+                        : "rgba(255,255,255,.06)"
+                };
+            ">
+
+                <b>
+                    ${a.name}
+                </b>
+
+                <br>
+
+                <small>
+                    ${a.description}
+                </small>
+
+                <br>
+
+                ${
+                    a.unlocked
+                        ? "✅ UNLOCKED"
+                        : "🔒 LOCKED"
+                }
+
+            </div>
+
+        `;
+    });
+
+
+    openPanel(
+        "🏆 ACHIEVEMENTS",
+        content,
+        [
+            {
+                text: "CLOSE",
+                action: closePanel
+            }
+        ]
+    );
+}
+
+
+/* =========================================================
+   WAVE FINISH
+========================================================= */
+
+function finishWave() {
+
+    GAME.waveRunning = false;
+
+    const reward =
+        25 + GAME.wave * 5;
+
+
+    GAME.coins += reward;
+
+
+    if (GAME.waveKills > 0) {
+        GAME.xp += GAME.waveKills * 2;
+    }
+
+
+    if (GAME.waveKills > 0) {
+        unlockAchievement("survivor");
+    }
+
+
+    message(
+        `🎉 Wave cleared! +${reward} coins`
+    );
+
+
+    if (
+        GAME.wave >=
+        GAME.maxVictoryWave
+    ) {
+
+        victory();
+
+        return;
+    }
+
+
+    GAME.wave++;
+
+    startWaveButton.disabled = false;
+
+    startWaveButton.style.opacity = "1";
+
+
+    updateHUD();
+
+    saveGame();
+}
+
+
+/* =========================================================
+   VICTORY
+========================================================= */
+
+function victory() {
+
+    GAME.victory = true;
+
+    GAME.waveRunning = false;
+
+    unlockAchievement("champion");
+
+
+    openPanel(
+
+        "🏆 VICTORY!",
+
+        `
+        <div style="text-align:center">
+
+            <div style="font-size:50px">
+                👑
+            </div>
+
+            <h3>
+                You defeated 15 waves!
+            </h3>
+
+            <br>
+
+            💰 Coins: ${GAME.coins}<br>
+            ⭐ XP: ${GAME.xp}<br>
+            ☠️ Kills: ${GAME.totalKills}
+
+        </div>
+        `,
+
+        [
+
+            {
+                text: "🔄 PLAY AGAIN",
+
+                action: () => {
+                    location.reload();
+                }
+            }
+
+        ]
+
+    );
+}
+
+
+/* =========================================================
+   GAME OVER
+========================================================= */
+
+function gameOver() {
+
+    GAME.gameOver = true;
+
+    GAME.waveRunning = false;
+
+
+    openPanel(
+
+        "💀 GAME OVER",
+
+        `
+        <div style="text-align:center">
+
+            <div style="font-size:50px">
+                💀
+            </div>
+
+            <h3>
+                The base was destroyed.
+            </h3>
+
+            <br>
+
+            Wave reached: ${GAME.wave}<br>
+            Kills: ${GAME.totalKills}
+
+        </div>
+        `,
+
+        [
+
+            {
+                text: "🔄 TRY AGAIN",
+
+                action: () => {
+                    localStorage.removeItem(
+                        "greakTowerV06"
+                    );
+
+                    location.reload();
+                }
+            }
+
+        ]
+
+    );
+}
+
+
+/* =========================================================
+   EFFECTS
+========================================================= */
+
+function createExplosion(position, color, size) {
 
     const geometry =
         new THREE.SphereGeometry(
-            0.18,
-            6,
-            6
+            .25,
+            12,
+            12
         );
+
 
     const material =
         new THREE.MeshBasicMaterial({
             color,
-            transparent: true
+            transparent: true,
+            opacity: .8
         });
+
 
     const mesh =
         new THREE.Mesh(
@@ -1535,450 +2526,51 @@ function createHitEffect(position, type) {
             material
         );
 
-    mesh.position.copy(position);
-
-    scene.add(mesh);
-
-    GAME.effects.push({
-        mesh,
-        life: 0.25
-    });
-}
-
-/* =========================================================
-   DESTROY ENEMY
-   ========================================================= */
-
-function destroyEnemy(enemy) {
-    if (!enemy.alive) return;
-
-    enemy.alive = false;
-
-    GAME.coins += enemy.reward;
-
-    scene.remove(enemy.model);
-
-    const index =
-        GAME.enemies.indexOf(enemy);
-
-    if (index !== -1) {
-        GAME.enemies.splice(index, 1);
-    }
-
-    if (enemy.type === "boss") {
-        hideBossUI();
-        message("👑 BOSS DEFEATED! +100 COINS!", 2200);
-        sound(1000, 0.35, "triangle");
-    }
-
-    updateHUD();
-}
-
-/* =========================================================
-   REACH BASE
-   ========================================================= */
-
-function reachBase(enemy) {
-    enemy.alive = false;
-
-    scene.remove(enemy.model);
-
-    const index =
-        GAME.enemies.indexOf(enemy);
-
-    if (index !== -1) {
-        GAME.enemies.splice(index, 1);
-    }
-
-    let damage = 10;
-
-    if (enemy.type === "tank") {
-        damage = 20;
-    }
-
-    if (enemy.type === "boss") {
-        damage = 40;
-        hideBossUI();
-    }
-
-    GAME.baseHealth -= damage;
-
-    message(
-        `💥 ${ENEMY_TYPES[enemy.type].name} reached the base! -${damage} HP`
-    );
-
-    sound(100, 0.15, "sawtooth");
-
-    updateHUD();
-
-    if (GAME.baseHealth <= 0) {
-        gameOver();
-    }
-}
-
-/* =========================================================
-   MOVE ENEMIES
-   ========================================================= */
-
-function updateEnemies(delta) {
-    for (const enemy of [...GAME.enemies]) {
-        if (!enemy.alive) continue;
-
-        if (
-            enemy.pathIndex >=
-            pathPoints.length - 1
-        ) {
-            reachBase(enemy);
-            continue;
-        }
-
-        const target =
-            pathPoints[enemy.pathIndex + 1];
-
-        const direction =
-            new THREE.Vector3()
-                .subVectors(
-                    target,
-                    enemy.model.position
-                )
-                .normalize();
-
-        const speedMultiplier =
-            enemy.type === "boss"
-                ? 1
-                : 1 + GAME.wave * 0.025;
-
-        enemy.model.position.add(
-            direction.multiplyScalar(
-                enemy.speed *
-                speedMultiplier *
-                delta
-            )
-        );
-
-        const distance =
-            enemy.model.position.distanceTo(target);
-
-        if (distance < 0.25) {
-            enemy.pathIndex++;
-        }
-
-        updateHealthBar(enemy);
-
-        if (enemy.type === "boss") {
-            updateBossUI(enemy);
-        }
-    }
-}
-
-/* =========================================================
-   TOWERS
-   ========================================================= */
-
-function updateTowers(delta) {
-    for (const tower of GAME.towers) {
-        tower.cooldown -= delta;
-        tower.abilityCooldown -= delta;
-
-        const target =
-            selectTarget(tower);
-
-        if (!target) continue;
-
-        const targetPosition =
-            target.model.position.clone();
-
-        targetPosition.y = 1.3;
-
-        tower.mesh.lookAt(targetPosition);
-
-        if (tower.cooldown <= 0) {
-            fireProjectile(
-                tower,
-                target
-            );
-
-            tower.cooldown =
-                tower.fireRate;
-        }
-    }
-
-    if (GAME.selectedTower) {
-        updateTowerPanel();
-    }
-}
-
-/* =========================================================
-   PROJECTILES
-   ========================================================= */
-
-function updateProjectiles(delta) {
-    for (const projectile of [...GAME.projectiles]) {
-        const target = projectile.target;
-
-        if (
-            !target ||
-            !target.alive ||
-            !GAME.enemies.includes(target)
-        ) {
-            scene.remove(projectile.mesh);
-
-            const index =
-                GAME.projectiles.indexOf(projectile);
-
-            if (index !== -1) {
-                GAME.projectiles.splice(index, 1);
-            }
-
-            continue;
-        }
-
-        const direction =
-            new THREE.Vector3()
-                .subVectors(
-                    target.model.position,
-                    projectile.mesh.position
-                );
-
-        const distance =
-            direction.length();
-
-        direction.normalize();
-
-        projectile.mesh.position.add(
-            direction.multiplyScalar(
-                projectile.speed * delta
-            )
-        );
-
-        if (distance < 0.6) {
-            damageEnemy(
-                target,
-                projectile.tower.damage,
-                projectile.tower
-            );
-
-            scene.remove(projectile.mesh);
-
-            const index =
-                GAME.projectiles.indexOf(projectile);
-
-            if (index !== -1) {
-                GAME.projectiles.splice(index, 1);
-            }
-        }
-    }
-}
-
-/* =========================================================
-   SPECIAL ABILITIES
-   ========================================================= */
-
-function activateAbility(tower) {
-    if (!tower) return;
-
-    const type =
-        TOWER_TYPES[tower.type];
-
-    if (tower.abilityCooldown > 0) {
-        message(
-            `⚡ Ability ready in ${tower.abilityCooldown.toFixed(1)}s`
-        );
-        return;
-    }
-
-    if (tower.type === "archer") {
-        const targets =
-            GAME.enemies.filter(enemy => {
-                return (
-                    enemy.alive &&
-                    tower.mesh.position.distanceTo(
-                        enemy.model.position
-                    ) <= tower.range
-                );
-            });
-
-        if (!targets.length) {
-            message("No enemies in range!");
-            return;
-        }
-
-        tower.abilityActive = true;
-
-        let shots = 0;
-
-        const rapidFire =
-            setInterval(() => {
-                if (
-                    shots >= 6 ||
-                    !tower.abilityActive
-                ) {
-                    clearInterval(rapidFire);
-                    tower.abilityActive = false;
-                    return;
-                }
-
-                const target =
-                    selectTarget(tower);
-
-                if (target) {
-                    fireProjectile(
-                        tower,
-                        target
-                    );
-                }
-
-                shots++;
-            }, 120);
-
-        tower.abilityCooldown =
-            type.abilityCooldown;
-
-        message("🏹 RAPID FIRE!");
-
-        sound(1000, 0.2);
-    }
-
-    else if (tower.type === "cannon") {
-        const targets =
-            GAME.enemies.filter(enemy => {
-                return (
-                    enemy.alive &&
-                    tower.mesh.position.distanceTo(
-                        enemy.model.position
-                    ) <= tower.range
-                );
-            });
-
-        if (!targets.length) {
-            message("No enemies in range!");
-            return;
-        }
-
-        const target =
-            selectTarget(tower);
-
-        const center =
-            target.model.position;
-
-        for (const enemy of [...GAME.enemies]) {
-            if (
-                enemy.alive &&
-                enemy.model.position.distanceTo(
-                    center
-                ) <= 3.5
-            ) {
-                damageEnemy(
-                    enemy,
-                    tower.damage * 2.5,
-                    tower
-                );
-            }
-        }
-
-        createExplosion(center);
-
-        tower.abilityCooldown =
-            type.abilityCooldown;
-
-        message("💣 BIG BLAST!");
-
-        sound(120, 0.4, "sawtooth");
-    }
-
-    else if (tower.type === "magic") {
-        const targets =
-            GAME.enemies.filter(enemy => {
-                return (
-                    enemy.alive &&
-                    tower.mesh.position.distanceTo(
-                        enemy.model.position
-                    ) <= tower.range
-                );
-            });
-
-        if (!targets.length) {
-            message("No enemies in range!");
-            return;
-        }
-
-        targets
-            .sort(
-                (a, b) =>
-                    b.pathIndex -
-                    a.pathIndex
-            )
-            .slice(0, 5)
-            .forEach(enemy => {
-                damageEnemy(
-                    enemy,
-                    tower.damage * 2,
-                    tower
-                );
-
-                createLightning(
-                    tower.mesh.position,
-                    enemy.model.position
-                );
-            });
-
-        tower.abilityCooldown =
-            type.abilityCooldown;
-
-        message("🔮 LIGHTNING!");
-
-        sound(1200, 0.3, "sine");
-    }
-
-    updateTowerPanel();
-}
-
-/* =========================================================
-   EXPLOSION
-   ========================================================= */
-
-function createExplosion(position) {
-    const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(
-            0.5,
-            12,
-            12
-        ),
-        new THREE.MeshBasicMaterial({
-            color: 0xff9800,
-            transparent: true
-        })
-    );
 
     mesh.position.copy(position);
 
     scene.add(mesh);
 
+
     GAME.effects.push({
+
         mesh,
-        life: 0.5,
-        explosion: true
+
+        life: .35,
+
+        maxLife: .35,
+
+        size
+
     });
 }
 
-/* =========================================================
-   LIGHTNING
-   ========================================================= */
+
+function createHitEffect(position) {
+
+    createExplosion(
+        position,
+        0xffffaa,
+        .6
+    );
+}
+
 
 function createLightning(start, end) {
-    const points = [
-        start.clone().setY(1.5),
-        end.clone().setY(1.5)
-    ];
 
     const geometry =
         new THREE.BufferGeometry()
-            .setFromPoints(points);
+            .setFromPoints([
+                start,
+                end
+            ]);
+
 
     const material =
         new THREE.LineBasicMaterial({
-            color: 0x00ffff
+            color: 0xffff00
         });
+
 
     const line =
         new THREE.Line(
@@ -1986,225 +2578,380 @@ function createLightning(start, end) {
             material
         );
 
+
     scene.add(line);
 
+
     GAME.effects.push({
+
         mesh: line,
-        life: 0.2
+
+        life: .15,
+
+        maxLife: .15,
+
+        size: 1
+
     });
 }
 
-/* =========================================================
-   EFFECTS
-   ========================================================= */
-
-function updateEffects(delta) {
-    for (const effect of [...GAME.effects]) {
-        effect.life -= delta;
-
-        if (effect.explosion) {
-            effect.mesh.scale.multiplyScalar(
-                1 + delta * 5
-            );
-        }
-
-        effect.mesh.material.opacity =
-            Math.max(
-                0,
-                effect.life * 4
-            );
-
-        if (effect.life <= 0) {
-            scene.remove(effect.mesh);
-
-            const index =
-                GAME.effects.indexOf(effect);
-
-            if (index !== -1) {
-                GAME.effects.splice(index, 1);
-            }
-        }
-    }
-}
 
 /* =========================================================
-   SPAWNING
-   ========================================================= */
+   DAMAGE NUMBERS
+========================================================= */
 
-function updateSpawning(delta) {
-    if (!GAME.waveRunning) return;
+function createDamageNumber(position, damage) {
 
-    if (
-        GAME.spawnIndex >=
-        GAME.spawnQueue.length
-    ) {
-        return;
-    }
-
-    GAME.spawnTimer -= delta;
-
-    if (GAME.spawnTimer <= 0) {
-        const type =
-            GAME.spawnQueue[
-                GAME.spawnIndex
-            ];
-
-        createEnemy(type);
-
-        GAME.spawnIndex++;
-
-        GAME.spawnTimer =
-            type === "boss"
-                ? 2.5
-                : 0.9;
-    }
-}
-
-/* =========================================================
-   WAVE COMPLETE
-   ========================================================= */
-
-function checkWaveComplete() {
-    if (!GAME.waveRunning) return;
-
-    const allSpawned =
-        GAME.spawnIndex >=
-        GAME.spawnQueue.length;
-
-    if (
-        allSpawned &&
-        GAME.enemies.length === 0
-    ) {
-        GAME.waveRunning = false;
-
-        const bonus =
-            GAME.waveBonus +
-            GAME.wave * 5;
-
-        GAME.coins += bonus;
-
-        message(
-            `🏆 WAVE ${GAME.wave} COMPLETE! +${bonus} COINS`,
-            2500
-        );
-
-        sound(700, 0.15);
-        setTimeout(
-            () => sound(1000, 0.2),
-            150
-        );
-
-        if (
-            GAME.wave >=
-            GAME.maxVictoryWave
-        ) {
-            victory();
-            return;
-        }
-
-        GAME.wave++;
-
-        updateHUD();
-    }
-}
-
-/* =========================================================
-   GAME OVER
-   ========================================================= */
-
-function gameOver() {
-    GAME.gameOver = true;
-    GAME.waveRunning = false;
-    GAME.towerMode = false;
-
-    closeTowerPanel();
-    hideBossUI();
-
-    message(
-        "💀 GAME OVER — Refresh to play again.",
-        100000
-    );
-
-    sound(80, 0.8, "sawtooth");
-}
-
-/* =========================================================
-   VICTORY
-   ========================================================= */
-
-function victory() {
-    GAME.victory = true;
-    GAME.waveRunning = false;
-    GAME.towerMode = false;
-
-    closeTowerPanel();
-    hideBossUI();
-
-    const panel =
+    const div =
         document.createElement("div");
 
-    panel.style.position = "fixed";
-    panel.style.left = "50%";
-    panel.style.top = "50%";
-    panel.style.transform =
-        "translate(-50%, -50%)";
-    panel.style.background =
-        "rgba(10,20,15,.97)";
-    panel.style.color = "white";
-    panel.style.padding = "30px";
-    panel.style.borderRadius = "18px";
-    panel.style.border =
-        "3px solid gold";
-    panel.style.textAlign = "center";
-    panel.style.zIndex = "100";
-    panel.style.minWidth = "300px";
 
-    panel.innerHTML = `
-        <div style="font-size:50px">
-            🏆
-        </div>
+    div.textContent =
+        `-${damage}`;
 
-        <h1>VICTORY!</h1>
 
-        <p>
-            You survived all
-            ${GAME.maxVictoryWave} waves!
-        </p>
+    div.style.position = "fixed";
 
-        <p>
-            💰 Final Coins:
-            ${Math.floor(GAME.coins)}
-        </p>
+    div.style.zIndex = "80";
 
-        <button
-            onclick="location.reload()"
-            style="
-                padding:12px 25px;
-                font-weight:bold;
-                cursor:pointer;
-            ">
-            PLAY AGAIN
-        </button>
-    `;
+    div.style.color = "white";
 
-    document.body.appendChild(panel);
+    div.style.fontWeight = "900";
 
-    sound(600, 0.15, "triangle");
+    div.style.fontSize = "15px";
 
-    setTimeout(
-        () => sound(900, 0.2, "triangle"),
-        150
-    );
+    div.style.pointerEvents = "none";
 
-    setTimeout(
-        () => sound(1200, 0.3, "triangle"),
-        300
+
+    document.body.appendChild(div);
+
+
+    let life = 0;
+
+
+    function animateNumber() {
+
+        life += .04;
+
+
+        div.style.opacity =
+            String(
+                Math.max(
+                    0,
+                    1 - life
+                )
+            );
+
+
+        div.style.transform =
+            `translate(-50%, -${life * 40}px)`;
+
+
+        if (life < 1) {
+
+            requestAnimationFrame(
+                animateNumber
+            );
+
+        } else {
+
+            div.remove();
+        }
+    }
+
+
+    const projected =
+        position.clone().project(camera);
+
+
+    div.style.left =
+        `${(projected.x + 1) / 2 * innerWidth}px`;
+
+    div.style.top =
+        `${(-projected.y + 1) / 2 * innerHeight}px`;
+
+
+    animateNumber();
+}
+
+
+/* =========================================================
+   EFFECT UPDATE
+========================================================= */
+
+function updateEffects(delta) {
+
+    for (
+        let i = GAME.effects.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const effect =
+            GAME.effects[i];
+
+
+        effect.life -= delta;
+
+
+        const progress =
+            1 -
+            effect.life /
+            effect.maxLife;
+
+
+        effect.mesh.scale.setScalar(
+            1 + progress * effect.size * 4
+        );
+
+
+        if (
+            effect.mesh.material
+        ) {
+
+            effect.mesh.material.opacity =
+                Math.max(
+                    0,
+                    effect.life /
+                    effect.maxLife
+                );
+        }
+
+
+        if (effect.life <= 0) {
+
+            scene.remove(
+                effect.mesh
+            );
+
+            GAME.effects.splice(
+                i,
+                1
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   SAVE SYSTEM
+========================================================= */
+
+const SAVE_KEY =
+    "greakTowerV06";
+
+
+function saveGame() {
+
+    const save = {
+
+        coins: GAME.coins,
+
+        xp: GAME.xp,
+
+        wave: GAME.wave,
+
+        totalKills: GAME.totalKills,
+
+        achievements:
+            Object.fromEntries(
+                Object.entries(
+                    ACHIEVEMENTS
+                ).map(
+                    ([key, value]) =>
+                        [key, value.unlocked]
+                )
+            )
+
+    };
+
+
+    localStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify(save)
     );
 }
+
+
+function loadGame() {
+
+    const raw =
+        localStorage.getItem(
+            SAVE_KEY
+        );
+
+
+    if (!raw) return;
+
+
+    try {
+
+        const save =
+            JSON.parse(raw);
+
+
+        GAME.coins =
+            save.coins ?? 100;
+
+        GAME.xp =
+            save.xp ?? 0;
+
+        GAME.wave =
+            save.wave ?? 1;
+
+        GAME.totalKills =
+            save.totalKills ?? 0;
+
+
+        if (save.achievements) {
+
+            Object.keys(
+                save.achievements
+            ).forEach(id => {
+
+                if (
+                    ACHIEVEMENTS[id]
+                ) {
+
+                    ACHIEVEMENTS[id].unlocked =
+                        save.achievements[id];
+                }
+
+            });
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "Save data could not be loaded."
+        );
+    }
+}
+
+
+/* =========================================================
+   HUD
+========================================================= */
+
+function updateHUD() {
+
+    coinsEl.textContent =
+        GAME.coins;
+
+    healthEl.textContent =
+        GAME.baseHealth;
+
+    waveEl.textContent =
+        GAME.wave;
+
+    xpEl.textContent =
+        GAME.xp;
+}
+
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+let messageTimer = null;
+
+
+function message(text, duration = 1800) {
+
+    messageEl.innerHTML =
+        text;
+
+    messageEl.style.opacity =
+        "1";
+
+
+    clearTimeout(messageTimer);
+
+
+    messageTimer =
+        setTimeout(() => {
+
+            messageEl.style.opacity =
+                "0";
+
+        }, duration);
+}
+
+
+/* =========================================================
+   AUDIO
+========================================================= */
+
+let audioContext = null;
+
+
+function playSound(
+    frequency,
+    duration,
+    type = "sine"
+) {
+
+    try {
+
+        if (!audioContext) {
+
+            audioContext =
+                new (
+                    window.AudioContext ||
+                    window.webkitAudioContext
+                )();
+        }
+
+
+        const oscillator =
+            audioContext.createOscillator();
+
+        const gain =
+            audioContext.createGain();
+
+
+        oscillator.type = type;
+
+        oscillator.frequency.value =
+            frequency;
+
+
+        gain.gain.setValueAtTime(
+            .08,
+            audioContext.currentTime
+        );
+
+
+        gain.gain.exponentialRampToValueAtTime(
+            .001,
+            audioContext.currentTime +
+            duration
+        );
+
+
+        oscillator.connect(gain);
+
+        gain.connect(
+            audioContext.destination
+        );
+
+
+        oscillator.start();
+
+        oscillator.stop(
+            audioContext.currentTime +
+            duration
+        );
+
+    } catch (error) {
+        /* Audio unavailable */
+    }
+}
+
 
 /* =========================================================
    RAYCASTING
-   ========================================================= */
+========================================================= */
 
 const raycaster =
     new THREE.Raycaster();
@@ -2212,149 +2959,266 @@ const raycaster =
 const mouse =
     new THREE.Vector2();
 
+
+function getMousePosition(event) {
+
+    mouse.x =
+        (event.clientX /
+            window.innerWidth) *
+            2 - 1;
+
+    mouse.y =
+        -(event.clientY /
+            window.innerHeight) *
+            2 + 1;
+
+
+    raycaster.setFromCamera(
+        mouse,
+        camera
+    );
+}
+
+
+/* =========================================================
+   MAP CLICK
+========================================================= */
+
 renderer.domElement.addEventListener(
     "pointerdown",
     event => {
 
-        if (
-            GAME.gameOver ||
-            GAME.victory
-        ) {
-            return;
-        }
+        getMousePosition(event);
 
-        mouse.x =
-            (event.clientX /
-                window.innerWidth) *
-                2 - 1;
 
-        mouse.y =
-            -(event.clientY /
-                window.innerHeight) *
-                2 + 1;
+        /* TOWER PLACEMENT */
 
-        raycaster.setFromCamera(
-            mouse,
-            camera
-        );
+        if (GAME.towerMode) {
 
-        /* -----------------------------------------
-           TOWER PLACEMENT
-           ----------------------------------------- */
-
-        if (
-            GAME.towerMode &&
-            GAME.selectedTowerType
-        ) {
             const hits =
                 raycaster.intersectObject(
                     ground
                 );
 
-            if (!hits.length) return;
 
-            const point =
-                hits[0].point;
-
-            if (point.x > 12 &&
-                point.z > 6) {
-                message(
-                    "❌ Too close to the base!"
-                );
+            if (!hits.length) {
                 return;
             }
 
-            for (const pathMesh of pathMeshes) {
+
+            const position =
+                hits[0].point;
+
+
+            position.y = 0;
+
+
+            /* DON'T PLACE ON PATH */
+
+            let blocked = false;
+
+
+            pathMeshes.forEach(path => {
+
                 const box =
                     new THREE.Box3()
-                        .setFromObject(
-                            pathMesh
-                        );
+                        .setFromObject(path);
+
 
                 if (
                     box.containsPoint(
-                        point
+                        position
                     )
                 ) {
-                    message(
-                        "❌ You can't build on the path!"
-                    );
-                    return;
+
+                    blocked = true;
                 }
+            });
+
+
+            if (blocked) {
+
+                message(
+                    "❌ You can't build on the path!"
+                );
+
+                return;
             }
 
-            for (const tower of GAME.towers) {
-                if (
-                    tower.mesh.position.distanceTo(
-                        point
-                    ) < 2.2
-                ) {
-                    message(
-                        "❌ Too close to another tower!"
-                    );
-                    return;
-                }
+
+            const type =
+                GAME.selectedTowerType;
+
+
+            const data =
+                TOWER_TYPES[type];
+
+
+            if (
+                GAME.coins <
+                data.cost
+            ) {
+
+                message(
+                    "❌ Not enough coins!"
+                );
+
+                return;
             }
+
+
+            GAME.coins -=
+                data.cost;
+
 
             createTower(
-                GAME.selectedTowerType,
-                new THREE.Vector3(
-                    point.x,
-                    0,
-                    point.z
-                )
+                type,
+                position
             );
 
+
             GAME.towerMode = false;
-            GAME.selectedTowerType = null;
+
+            GAME.selectedTowerType =
+                null;
+
+
+            updateHUD();
+
+            saveGame();
+
+            message(
+                `🏰 ${data.name} placed!`
+            );
 
             return;
         }
 
-        /* -----------------------------------------
-           TOWER SELECTION
-           ----------------------------------------- */
+
+        /* TOWER SELECTION */
 
         const objects =
-            GAME.towers.map(
-                tower => tower.mesh
+            [];
+
+
+        GAME.towers.forEach(tower => {
+
+            tower.mesh.traverse(
+                child => {
+
+                    if (
+                        child.isMesh
+                    ) {
+                        objects.push({
+                            mesh: child,
+                            tower
+                        });
+                    }
+
+                }
             );
 
-        const hits =
+        });
+
+
+        const intersects =
             raycaster.intersectObjects(
-                objects,
+                objects.map(
+                    object => object.mesh
+                ),
                 true
             );
 
-        if (!hits.length) {
-            closeTowerPanel();
-            return;
+
+        if (intersects.length) {
+
+            const selected =
+                objects.find(
+                    object =>
+                        object.mesh ===
+                        intersects[0].object
+                );
+
+
+            if (selected) {
+
+                openTowerPanel(
+                    selected.tower
+                );
+            }
         }
 
-        let object =
-            hits[0].object;
-
-        while (
-            object &&
-            !object.userData.tower
-        ) {
-            object = object.parent;
-        }
-
-        if (
-            object &&
-            object.userData.tower
-        ) {
-            openTowerPanel(
-                object.userData.tower
-            );
-        }
     }
 );
 
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+startWaveButton.addEventListener(
+    "click",
+    startWave
+);
+
+
+towerButton.addEventListener(
+    "click",
+    openTowerMenu
+);
+
+
+achievementsButton.addEventListener(
+    "click",
+    showAchievements
+);
+
+
+/* =========================================================
+   START BUTTON RIGHT CLICK
+   Opens wave preview
+========================================================= */
+
+startWaveButton.addEventListener(
+    "contextmenu",
+    event => {
+
+        event.preventDefault();
+
+        wavePreview();
+    }
+);
+
+
+/* =========================================================
+   KEYBOARD
+========================================================= */
+
+window.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key === "Escape") {
+
+            GAME.towerMode = false;
+
+            GAME.selectedTowerType =
+                null;
+
+            closePanel();
+
+            message(
+                "Cancelled"
+            );
+        }
+
+    }
+);
+
+
 /* =========================================================
    RESIZE
-   ========================================================= */
+========================================================= */
 
 window.addEventListener(
     "resize",
@@ -2370,37 +3234,53 @@ window.addEventListener(
             window.innerWidth,
             window.innerHeight
         );
+
     }
 );
 
+
 /* =========================================================
    GAME LOOP
-   ========================================================= */
+========================================================= */
 
-let lastTime = performance.now();
+let lastTime =
+    performance.now();
+
 
 function animate(now) {
-    requestAnimationFrame(animate);
+
+    requestAnimationFrame(
+        animate
+    );
+
 
     const delta =
         Math.min(
-            (now - lastTime) / 1000,
-            0.05
+            .05,
+            (now - lastTime) /
+            1000
         );
 
+
     lastTime = now;
+
 
     if (
         !GAME.gameOver &&
         !GAME.victory
     ) {
+
         updateSpawning(delta);
+
         updateEnemies(delta);
+
         updateTowers(delta);
+
         updateProjectiles(delta);
+
         updateEffects(delta);
-        checkWaveComplete();
     }
+
 
     renderer.render(
         scene,
@@ -2408,6 +3288,20 @@ function animate(now) {
     );
 }
 
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+loadGame();
+
 updateHUD();
 
-animate(performance.now());
+message(
+    "🎮 Welcome to GREAK TOWER V0.6!",
+    2500
+);
+
+animate(
+    performance.now()
+);
