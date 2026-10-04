@@ -2,37 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>GREAK TOWER V0.5</title>
+    <title>GREAK TOWER V0.6</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <!-- GAME -->
     <div id="game"></div>
-
 
     <!-- TOP HUD -->
     <div id="hud">
 
         <div id="brand">
             GREAK TOWER
-            <span style="
-                font-size: 12px;
-                opacity: .7;
-                margin-left: 5px;
-            ">
-                V0.5
-            </span>
+            <span class="version">V0.6</span>
         </div>
-
 
         <div id="stats">
 
@@ -46,6 +33,10 @@
 
             <div class="stat">
                 🌊 Wave <span id="wave">1</span>
+            </div>
+
+            <div class="stat">
+                ⭐ <span id="xp">0</span> XP
             </div>
 
         </div>
@@ -64,20 +55,18 @@
             🏰 TOWER
         </button>
 
+        <button id="achievementsButton">
+            🏆
+        </button>
+
     </div>
 
 
-    <!-- MESSAGE -->
     <div id="message"></div>
 
 
-    <!-- THREE.JS -->
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-
-    <!-- GAME SCRIPT -->
     <script src="script.js"></script>
 
 </body>
