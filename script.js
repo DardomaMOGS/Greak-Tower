@@ -2,12 +2,8 @@
 
 /* =========================================================
    GREAK TOWER V0.1
-   Complete working game logic
+   Enemies + Rotating Towers
    ========================================================= */
-
-// ---------------------------------------------------------
-// GAME STATE
-// ---------------------------------------------------------
 
 const GAME = {
     coins: 100,
@@ -23,10 +19,6 @@ const GAME = {
 
     towerMode: false
 };
-
-// ---------------------------------------------------------
-// THREE.JS
-// ---------------------------------------------------------
 
 let scene;
 let camera;
@@ -55,7 +47,7 @@ const pathPoints = [
 ];
 
 // ---------------------------------------------------------
-// START GAME
+// START
 // ---------------------------------------------------------
 
 function startGame() {
@@ -65,11 +57,9 @@ function startGame() {
         return;
     }
 
-    // Scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    // Camera
     camera = new THREE.PerspectiveCamera(
         60,
         window.innerWidth / window.innerHeight,
@@ -80,7 +70,6 @@ function startGame() {
     camera.position.set(0, 28, 27);
     camera.lookAt(0, 0, 0);
 
-    // Renderer
     renderer = new THREE.WebGLRenderer({
         antialias: true
     });
@@ -97,12 +86,10 @@ function startGame() {
     renderer.shadowMap.enabled = true;
 
     document.getElementById("game").innerHTML = "";
-
     document.getElementById("game").appendChild(
         renderer.domElement
     );
 
-    // Raycasting
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
 
@@ -111,20 +98,15 @@ function startGame() {
         0
     );
 
-    // Lights
     createLights();
-
-    // Map
     createGround();
     createPath();
     createTrees();
     createBase();
 
-    // UI
     setupButtons();
     updateUI();
 
-    // Input
     renderer.domElement.addEventListener(
         "click",
         handleMapClick
@@ -158,12 +140,7 @@ function createLights() {
         1
     );
 
-    sun.position.set(
-        10,
-        30,
-        15
-    );
-
+    sun.position.set(10, 30, 15);
     sun.castShadow = true;
 
     scene.add(sun);
@@ -175,24 +152,14 @@ function createLights() {
 
 function createGround() {
 
-    const geometry = new THREE.BoxGeometry(
-        34,
-        1,
-        26
-    );
-
-    const material =
+    const ground = new THREE.Mesh(
+        new THREE.BoxGeometry(34, 1, 26),
         new THREE.MeshStandardMaterial({
             color: 0x4caf50
-        });
-
-    const ground = new THREE.Mesh(
-        geometry,
-        material
+        })
     );
 
     ground.position.y = -0.5;
-
     ground.receiveShadow = true;
 
     scene.add(ground);
@@ -221,31 +188,28 @@ function createPath() {
             dx * dx + dz * dz
         );
 
+        const horizontal =
+            Math.abs(dx) > Math.abs(dz);
+
         const geometry =
             new THREE.BoxGeometry(
-                Math.abs(dx) > Math.abs(dz)
-                    ? length
-                    : 3.5,
-
+                horizontal ? length : 3.5,
                 0.15,
-
-                Math.abs(dz) > Math.abs(dx)
-                    ? length
-                    : 3.5
+                horizontal ? 3.5 : length
             );
 
-        const pathPart = new THREE.Mesh(
+        const part = new THREE.Mesh(
             geometry,
             material
         );
 
-        pathPart.position.set(
+        part.position.set(
             (a.x + b.x) / 2,
             0.08,
             (a.z + b.z) / 2
         );
 
-        scene.add(pathPart);
+        scene.add(part);
     }
 }
 
@@ -255,7 +219,7 @@ function createPath() {
 
 function createTrees() {
 
-    const treePositions = [
+    const positions = [
         [-15, -3],
         [-13, 6],
         [-4, -3],
@@ -268,46 +232,28 @@ function createTrees() {
         [5, 11]
     ];
 
-    for (const [x, z] of treePositions) {
+    for (const [x, z] of positions) {
 
         const trunk = new THREE.Mesh(
-            new THREE.BoxGeometry(
-                0.8,
-                2,
-                0.8
-            ),
+            new THREE.BoxGeometry(0.8, 2, 0.8),
             new THREE.MeshStandardMaterial({
                 color: 0x795548
             })
         );
 
-        trunk.position.set(
-            x,
-            1,
-            z
-        );
-
+        trunk.position.set(x, 1, z);
         trunk.castShadow = true;
 
         scene.add(trunk);
 
         const leaves = new THREE.Mesh(
-            new THREE.BoxGeometry(
-                2.5,
-                2.5,
-                2.5
-            ),
+            new THREE.BoxGeometry(2.5, 2.5, 2.5),
             new THREE.MeshStandardMaterial({
                 color: 0x228b22
             })
         );
 
-        leaves.position.set(
-            x,
-            2.8,
-            z
-        );
-
+        leaves.position.set(x, 2.8, z);
         leaves.castShadow = true;
 
         scene.add(leaves);
@@ -321,45 +267,26 @@ function createTrees() {
 function createBase() {
 
     const base = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            3,
-            3,
-            3
-        ),
+        new THREE.BoxGeometry(3, 3, 3),
         new THREE.MeshStandardMaterial({
             color: 0x7e57c2
         })
     );
 
-    base.position.set(
-        15,
-        1.5,
-        9
-    );
-
+    base.position.set(15, 1.5, 9);
     base.castShadow = true;
 
     scene.add(base);
 
     const roof = new THREE.Mesh(
-        new THREE.ConeGeometry(
-            2.5,
-            2.5,
-            4
-        ),
+        new THREE.ConeGeometry(2.5, 2.5, 4),
         new THREE.MeshStandardMaterial({
             color: 0xff9800
         })
     );
 
-    roof.position.set(
-        15,
-        4.2,
-        9
-    );
-
+    roof.position.set(15, 4.2, 9);
     roof.rotation.y = Math.PI / 4;
-
     roof.castShadow = true;
 
     scene.add(roof);
@@ -371,37 +298,36 @@ function createBase() {
 
 function setupButtons() {
 
-    const startButton =
-        document.getElementById("startWave");
+    document.getElementById("startWave").onclick =
+        startWave;
 
-    const towerButton =
-        document.getElementById("towerButton");
+    document.getElementById("towerButton").onclick =
+        function () {
 
-    startButton.onclick = startWave;
+            if (GAME.gameOver) return;
 
-    towerButton.onclick = function () {
+            GAME.towerMode = !GAME.towerMode;
 
-        if (GAME.gameOver) return;
+            const button =
+                document.getElementById("towerButton");
 
-        GAME.towerMode = !GAME.towerMode;
+            if (GAME.towerMode) {
 
-        if (GAME.towerMode) {
+                button.textContent =
+                    "❌ CANCEL TOWER";
 
-            towerButton.textContent =
-                "❌ CANCEL TOWER";
+                showMessage(
+                    "Click an empty green area to place a tower."
+                );
 
-            showMessage(
-                "Click an empty green area to place a tower."
-            );
+            } else {
 
-        } else {
+                button.textContent =
+                    "🏰 TOWER";
 
-            towerButton.textContent =
-                "🏰 TOWER";
-
-            showMessage("");
-        }
-    };
+                showMessage("");
+            }
+        };
 }
 
 // ---------------------------------------------------------
@@ -410,8 +336,8 @@ function setupButtons() {
 
 function handleMapClick(event) {
 
-    if (!GAME.towerMode) return;
-    if (GAME.gameOver) return;
+    if (!GAME.towerMode || GAME.gameOver)
+        return;
 
     const rect =
         renderer.domElement.getBoundingClientRect();
@@ -432,13 +358,12 @@ function handleMapClick(event) {
     const position =
         new THREE.Vector3();
 
-    const hit =
-        raycaster.ray.intersectPlane(
+    if (
+        !raycaster.ray.intersectPlane(
             placementPlane,
             position
-        );
-
-    if (!hit) {
+        )
+    ) {
         showMessage("Invalid location.");
         return;
     }
@@ -450,14 +375,13 @@ function handleMapClick(event) {
 }
 
 // ---------------------------------------------------------
-// TOWER PLACEMENT
+// PLACE TOWER
 // ---------------------------------------------------------
 
 function placeTower(x, z) {
 
     const COST = 50;
 
-    // Map boundary
     if (
         x < -16 ||
         x > 16 ||
@@ -468,13 +392,11 @@ function placeTower(x, z) {
         return;
     }
 
-    // Path
     if (isOnPath(x, z)) {
         showMessage("You cannot build on the path.");
         return;
     }
 
-    // Base
     if (
         Math.hypot(
             x - 15,
@@ -485,7 +407,6 @@ function placeTower(x, z) {
         return;
     }
 
-    // Tower spacing
     for (const tower of towers) {
 
         const distance =
@@ -502,27 +423,16 @@ function placeTower(x, z) {
         }
     }
 
-    // Money
     if (GAME.coins < COST) {
-
-        showMessage(
-            "You need 50 coins."
-        );
-
+        showMessage("You need 50 coins.");
         return;
     }
 
-    // Create tower
-    const tower = createTower(
-        x,
-        z
+    towers.push(
+        createTower(x, z)
     );
 
-    towers.push(tower);
-
     GAME.coins -= COST;
-
-    updateUI();
 
     GAME.towerMode = false;
 
@@ -530,13 +440,13 @@ function placeTower(x, z) {
         "towerButton"
     ).textContent = "🏰 TOWER";
 
-    showMessage(
-        "Tower placed!"
-    );
+    updateUI();
+
+    showMessage("Tower placed!");
 }
 
 // ---------------------------------------------------------
-// CHECK PATH
+// PATH CHECK
 // ---------------------------------------------------------
 
 function isOnPath(x, z) {
@@ -579,49 +489,43 @@ function isOnPath(x, z) {
 
 function createTower(x, z) {
 
-    const group =
-        new THREE.Group();
+    const group = new THREE.Group();
 
+    // Tower base
     const base = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.7,
-            1.8,
-            1.7
-        ),
+        new THREE.BoxGeometry(1.7, 1.8, 1.7),
         new THREE.MeshStandardMaterial({
             color: 0x2196f3
         })
     );
 
     base.position.y = 0.9;
-
     base.castShadow = true;
 
     group.add(base);
 
+    // ROTATING TURRET
+    const turret = new THREE.Group();
+
+    turret.position.y = 1.8;
+
+    group.add(turret);
+
     const top = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.3,
-            0.9,
-            1.3
-        ),
+        new THREE.BoxGeometry(1.3, 0.9, 1.3),
         new THREE.MeshStandardMaterial({
             color: 0xffd600
         })
     );
 
-    top.position.y = 2.25;
-
+    top.position.y = 0.45;
     top.castShadow = true;
 
-    group.add(top);
+    turret.add(top);
 
+    // Barrel points forward along -Z
     const barrel = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            0.35,
-            0.35,
-            1.4
-        ),
+        new THREE.BoxGeometry(0.35, 0.35, 1.5),
         new THREE.MeshStandardMaterial({
             color: 0x263238
         })
@@ -629,13 +533,13 @@ function createTower(x, z) {
 
     barrel.position.set(
         0,
-        2.25,
-        -0.8
+        0.45,
+        -0.85
     );
 
     barrel.castShadow = true;
 
-    group.add(barrel);
+    turret.add(barrel);
 
     group.position.set(
         x,
@@ -647,10 +551,14 @@ function createTower(x, z) {
 
     return {
         mesh: group,
+        turret: turret,
+
         range: 7,
         damage: 25,
         fireRate: 0.7,
-        cooldown: 0
+        cooldown: 0,
+
+        target: null
     };
 }
 
@@ -660,7 +568,8 @@ function createTower(x, z) {
 
 function startWave() {
 
-    if (GAME.gameOver) return;
+    if (GAME.gameOver)
+        return;
 
     if (GAME.waveRunning) {
 
@@ -677,7 +586,6 @@ function startWave() {
         4 + GAME.wave * 2;
 
     GAME.enemiesSpawned = 0;
-
     GAME.spawnTimer = 0;
 
     showMessage(
@@ -686,48 +594,206 @@ function startWave() {
 }
 
 // ---------------------------------------------------------
+// CREATE ENEMY
+// ---------------------------------------------------------
+
+function createEnemyModel() {
+
+    const enemy = new THREE.Group();
+
+    // Body
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.55,
+            0.65,
+            1.25,
+            8
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0xe53935
+        })
+    );
+
+    body.position.y = 1.25;
+    body.castShadow = true;
+
+    enemy.add(body);
+
+    // Head
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            0.55,
+            12,
+            8
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0xff7043
+        })
+    );
+
+    head.position.y = 2.25;
+    head.castShadow = true;
+
+    enemy.add(head);
+
+    // Eyes
+    const eyeMaterial =
+        new THREE.MeshStandardMaterial({
+            color: 0x111111
+        });
+
+    const leftEye = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            0.09,
+            8,
+            8
+        ),
+        eyeMaterial
+    );
+
+    leftEye.position.set(
+        -0.2,
+        2.32,
+        -0.48
+    );
+
+    enemy.add(leftEye);
+
+    const rightEye = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            0.09,
+            8,
+            8
+        ),
+        eyeMaterial
+    );
+
+    rightEye.position.set(
+        0.2,
+        2.32,
+        -0.48
+    );
+
+    enemy.add(rightEye);
+
+    // Arms
+    const armMaterial =
+        new THREE.MeshStandardMaterial({
+            color: 0xe53935
+        });
+
+    const leftArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.16,
+            0.16,
+            1,
+            8
+        ),
+        armMaterial
+    );
+
+    leftArm.position.set(
+        -0.75,
+        1.3,
+        0
+    );
+
+    leftArm.rotation.z = -0.25;
+
+    enemy.add(leftArm);
+
+    const rightArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.16,
+            0.16,
+            1,
+            8
+        ),
+        armMaterial
+    );
+
+    rightArm.position.set(
+        0.75,
+        1.3,
+        0
+    );
+
+    rightArm.rotation.z = 0.25;
+
+    enemy.add(rightArm);
+
+    // Legs
+    const legMaterial =
+        new THREE.MeshStandardMaterial({
+            color: 0x8e24aa
+        });
+
+    const leftLeg = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.18,
+            0.18,
+            0.9,
+            8
+        ),
+        legMaterial
+    );
+
+    leftLeg.position.set(
+        -0.3,
+        0.45,
+        0
+    );
+
+    enemy.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.18,
+            0.18,
+            0.9,
+            8
+        ),
+        legMaterial
+    );
+
+    rightLeg.position.set(
+        0.3,
+        0.45,
+        0
+    );
+
+    enemy.add(rightLeg);
+
+    return enemy;
+}
+
+// ---------------------------------------------------------
 // SPAWN ENEMY
 // ---------------------------------------------------------
 
 function spawnEnemy() {
 
-    const enemyMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.4,
-            1.4,
-            1.4
-        ),
-        new THREE.MeshStandardMaterial({
-            color: 0xf44336
-        })
-    );
+    const mesh = createEnemyModel();
 
-    enemyMesh.position.copy(
+    mesh.position.copy(
         pathPoints[0]
     );
 
-    enemyMesh.position.y = 0.7;
+    scene.add(mesh);
 
-    enemyMesh.castShadow = true;
-
-    scene.add(enemyMesh);
-
-    const enemy = {
-        mesh: enemyMesh,
+    enemies.push({
+        mesh: mesh,
 
         pathIndex: 0,
 
         health: 100,
-
         maxHealth: 100,
 
         speed:
             2.2 + GAME.wave * 0.05,
 
         reward: 10
-    };
-
-    enemies.push(enemy);
+    });
 }
 
 // ---------------------------------------------------------
@@ -749,9 +815,7 @@ function updateEnemies(delta) {
             pathPoints.length - 1
         ) {
 
-            scene.remove(
-                enemy.mesh
-            );
+            scene.remove(enemy.mesh);
 
             enemies.splice(i, 1);
 
@@ -793,7 +857,7 @@ function updateEnemies(delta) {
 
             enemy.mesh.position.set(
                 target.x,
-                0.7,
+                0,
                 target.z
             );
 
@@ -813,6 +877,16 @@ function updateEnemies(delta) {
                 enemy.speed *
                 delta;
         }
+
+        // Enemy faces the direction it is walking
+        if (direction.lengthSq() > 0) {
+
+            enemy.mesh.rotation.y =
+                Math.atan2(
+                    direction.x,
+                    direction.z
+                );
+        }
     }
 }
 
@@ -826,17 +900,23 @@ function updateTowers(delta) {
 
         tower.cooldown -= delta;
 
-        if (tower.cooldown > 0)
-            continue;
-
         let closest = null;
         let closestDistance = Infinity;
 
         for (const enemy of enemies) {
 
+            const dx =
+                enemy.mesh.position.x -
+                tower.mesh.position.x;
+
+            const dz =
+                enemy.mesh.position.z -
+                tower.mesh.position.z;
+
             const distance =
-                tower.mesh.position.distanceTo(
-                    enemy.mesh.position
+                Math.sqrt(
+                    dx * dx +
+                    dz * dz
                 );
 
             if (
@@ -849,15 +929,54 @@ function updateTowers(delta) {
             }
         }
 
+        tower.target = closest;
+
+        // ROTATE TURRET TOWARD ENEMY
         if (closest) {
 
-            fireProjectile(
-                tower,
-                closest
-            );
+            const dx =
+                closest.mesh.position.x -
+                tower.mesh.position.x;
 
-            tower.cooldown =
-                tower.fireRate;
+            const dz =
+                closest.mesh.position.z -
+                tower.mesh.position.z;
+
+            const desiredRotation =
+                Math.atan2(
+                    dx,
+                    -dz
+                );
+
+            // Smooth rotation
+            let difference =
+                desiredRotation -
+                tower.turret.rotation.y;
+
+            while (difference > Math.PI)
+                difference -= Math.PI * 2;
+
+            while (difference < -Math.PI)
+                difference += Math.PI * 2;
+
+            tower.turret.rotation.y +=
+                difference *
+                Math.min(
+                    1,
+                    delta * 8
+                );
+
+            // Fire
+            if (tower.cooldown <= 0) {
+
+                fireProjectile(
+                    tower,
+                    closest
+                );
+
+                tower.cooldown =
+                    tower.fireRate;
+            }
         }
     }
 }
@@ -899,7 +1018,7 @@ function fireProjectile(
 }
 
 // ---------------------------------------------------------
-// UPDATE PROJECTILES
+// PROJECTILES
 // ---------------------------------------------------------
 
 function updateProjectiles(delta) {
@@ -983,14 +1102,9 @@ function destroyEnemy(enemy) {
     if (index === -1)
         return;
 
-    scene.remove(
-        enemy.mesh
-    );
+    scene.remove(enemy.mesh);
 
-    enemies.splice(
-        index,
-        1
-    );
+    enemies.splice(index, 1);
 
     GAME.coins += enemy.reward;
 
@@ -998,7 +1112,7 @@ function destroyEnemy(enemy) {
 }
 
 // ---------------------------------------------------------
-// WAVE LOGIC
+// WAVE UPDATE
 // ---------------------------------------------------------
 
 function updateWave(delta) {
@@ -1047,7 +1161,6 @@ function finishWave() {
     GAME.waveRunning = false;
 
     GAME.coins += 25;
-
     GAME.wave++;
 
     updateUI();
@@ -1067,7 +1180,6 @@ function gameOver() {
         return;
 
     GAME.gameOver = true;
-
     GAME.waveRunning = false;
     GAME.towerMode = false;
 
@@ -1088,18 +1200,15 @@ function updateUI() {
 
     document.getElementById(
         "coins"
-    ).textContent =
-        GAME.coins;
+    ).textContent = GAME.coins;
 
     document.getElementById(
         "baseHealth"
-    ).textContent =
-        GAME.baseHealth;
+    ).textContent = GAME.baseHealth;
 
     document.getElementById(
         "wave"
-    ).textContent =
-        GAME.wave;
+    ).textContent = GAME.wave;
 }
 
 // ---------------------------------------------------------
@@ -1111,15 +1220,11 @@ let messageTimer = null;
 function showMessage(text) {
 
     const message =
-        document.getElementById(
-            "message"
-        );
+        document.getElementById("message");
 
     message.textContent = text;
 
-    clearTimeout(
-        messageTimer
-    );
+    clearTimeout(messageTimer);
 
     if (text) {
 
@@ -1159,9 +1264,7 @@ let lastTime = performance.now();
 
 function animate() {
 
-    requestAnimationFrame(
-        animate
-    );
+    requestAnimationFrame(animate);
 
     const now =
         performance.now();
