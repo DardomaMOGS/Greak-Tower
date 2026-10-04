@@ -4,17 +4,15 @@
 /*
 =========================================================
 GREAK TOWER V0.1
-Browser Tower Defense
-Three.js
+COMPLETE FIXED BUILD
 =========================================================
 */
 
 /* ======================================================
-   BASIC SETUP
+   HTML ELEMENTS
 ====================================================== */
 
 const game = document.getElementById("game");
-
 const coinsElement = document.getElementById("coins");
 const healthElement = document.getElementById("baseHealth");
 const waveElement = document.getElementById("wave");
@@ -31,13 +29,12 @@ const messageElement = document.getElementById("message");
 const GAME = {
     coins: 100,
     baseHealth: 100,
-
     wave: 1,
 
     waveRunning: false,
+
     enemiesToSpawn: 0,
     enemiesSpawned: 0,
-
     spawnTimer: 0,
 
     towerMode: false,
@@ -47,7 +44,7 @@ const GAME = {
 
 
 /* ======================================================
-   THREE.JS
+   THREE.JS SCENE
 ====================================================== */
 
 const scene = new THREE.Scene();
@@ -66,7 +63,8 @@ const camera = new THREE.PerspectiveCamera(
     1000
 );
 
-camera.position.set(0, 28, 24);
+camera.position.set(0, 30, 25);
+
 camera.lookAt(0, 0, 0);
 
 
@@ -78,8 +76,14 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
 
 renderer.shadowMap.enabled = true;
 
@@ -87,31 +91,37 @@ game.appendChild(renderer.domElement);
 
 
 /* ======================================================
-   LIGHTING
+   LIGHTS
 ====================================================== */
 
-const ambientLight = new THREE.HemisphereLight(
-    0xffffff,
-    0x567d46,
-    1.8
-);
+const ambientLight =
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x557755,
+        1.8
+    );
 
 scene.add(ambientLight);
 
 
-const sun = new THREE.DirectionalLight(
-    0xffffff,
-    2
+const sunlight =
+    new THREE.DirectionalLight(
+        0xffffff,
+        2
+    );
+
+sunlight.position.set(
+    10,
+    30,
+    10
 );
 
-sun.position.set(10, 25, 10);
+sunlight.castShadow = true;
 
-sun.castShadow = true;
+sunlight.shadow.mapSize.width = 2048;
+sunlight.shadow.mapSize.height = 2048;
 
-sun.shadow.mapSize.width = 2048;
-sun.shadow.mapSize.height = 2048;
-
-scene.add(sun);
+scene.add(sunlight);
 
 
 /* ======================================================
@@ -131,47 +141,63 @@ scene.add(projectileGroup);
    MATERIALS
 ====================================================== */
 
-const grassMaterial = new THREE.MeshStandardMaterial({
-    color: 0x55a630
-});
+const grassMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0x55a630
+    });
 
-const pathMaterial = new THREE.MeshStandardMaterial({
-    color: 0xc2a878
-});
 
-const towerMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2563eb
-});
+const pathMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0xc2a878
+    });
 
-const towerTopMaterial = new THREE.MeshStandardMaterial({
-    color: 0xfacc15
-});
 
-const enemyMaterial = new THREE.MeshStandardMaterial({
-    color: 0xdc2626
-});
+const towerMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0x2563eb
+    });
 
-const enemyFaceMaterial = new THREE.MeshStandardMaterial({
-    color: 0x111827
-});
 
-const projectileMaterial = new THREE.MeshStandardMaterial({
-    color: 0xfde047,
-    emissive: 0xfacc15,
-    emissiveIntensity: 1
-});
+const towerTopMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0xfacc15
+    });
+
+
+const enemyMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0xdc2626
+    });
+
+
+const enemyFaceMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0x111827
+    });
+
+
+const projectileMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0xfde047,
+        emissive: 0xfacc15,
+        emissiveIntensity: 1
+    });
 
 
 /* ======================================================
-   MAP
+   GROUND
 ====================================================== */
 
-const groundGeometry = new THREE.BoxGeometry(34, 1, 26);
-
-const ground = new THREE.Mesh(
-    groundGeometry,
-    grassMaterial
-);
+const ground =
+    new THREE.Mesh(
+        new THREE.BoxGeometry(
+            34,
+            1,
+            26
+        ),
+        grassMaterial
+    );
 
 ground.position.y = -0.5;
 
@@ -181,57 +207,71 @@ scene.add(ground);
 
 
 /* ======================================================
-   ENEMY PATH
+   PATH
 ====================================================== */
 
 const pathPoints = [
-    new THREE.Vector3(-15, 0.5, -9),
-    new THREE.Vector3(-8, 0.5, -9),
-    new THREE.Vector3(-8, 0.5, 5),
-    new THREE.Vector3(2, 0.5, 5),
-    new THREE.Vector3(2, 0.5, -5),
-    new THREE.Vector3(10, 0.5, -5),
-    new THREE.Vector3(10, 0.5, 9),
-    new THREE.Vector3(15, 0.5, 9)
+    new THREE.Vector3(-15, 0, -9),
+    new THREE.Vector3(-8, 0, -9),
+    new THREE.Vector3(-8, 0, 5),
+    new THREE.Vector3(2, 0, 5),
+    new THREE.Vector3(2, 0, -5),
+    new THREE.Vector3(10, 0, -5),
+    new THREE.Vector3(10, 0, 9),
+    new THREE.Vector3(15, 0, 9)
 ];
 
 
-/* ======================================================
-   CREATE PATH SEGMENTS
-====================================================== */
-
 function createPathSegment(start, end) {
 
-    const distance = start.distanceTo(end);
+    const horizontal =
+        Math.abs(end.x - start.x) >
+        Math.abs(end.z - start.z);
 
-    const geometry = new THREE.BoxGeometry(
-        Math.abs(end.x - start.x) || 3,
-        0.2,
-        Math.abs(end.z - start.z) || 3
-    );
 
-    const mesh = new THREE.Mesh(
-        geometry,
-        pathMaterial
-    );
+    const length = horizontal
+        ? Math.abs(end.x - start.x)
+        : Math.abs(end.z - start.z);
 
-    mesh.position.set(
+
+    const geometry = horizontal
+        ? new THREE.BoxGeometry(
+            length + 1.5,
+            0.2,
+            2.5
+        )
+        : new THREE.BoxGeometry(
+            2.5,
+            0.2,
+            length + 1.5
+        );
+
+
+    const path =
+        new THREE.Mesh(
+            geometry,
+            pathMaterial
+        );
+
+
+    path.position.set(
         (start.x + end.x) / 2,
-        0.05,
+        0.08,
         (start.z + end.z) / 2
     );
 
-    mesh.receiveShadow = true;
 
-    scene.add(mesh);
+    path.receiveShadow = true;
+
+    scene.add(path);
 }
 
 
-/* ======================================================
-   BUILD PATH
-====================================================== */
-
-for (let i = 0; i < pathPoints.length - 1; i++) {
+for (
+    let i = 0;
+    i < pathPoints.length - 1;
+    i++
+) {
 
     createPathSegment(
         pathPoints[i],
@@ -241,49 +281,55 @@ for (let i = 0; i < pathPoints.length - 1; i++) {
 
 
 /* ======================================================
-   DECORATIONS
+   TREES
 ====================================================== */
 
 function createTree(x, z) {
 
-    const trunkGeometry = new THREE.BoxGeometry(
-        0.7,
-        2,
-        0.7
+    const trunk =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                0.7,
+                2,
+                0.7
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x7c4a21
+            })
+        );
+
+
+    trunk.position.set(
+        x,
+        1,
+        z
     );
 
-    const trunkMaterial = new THREE.MeshStandardMaterial({
-        color: 0x7c4a21
-    });
-
-    const trunk = new THREE.Mesh(
-        trunkGeometry,
-        trunkMaterial
-    );
-
-    trunk.position.set(x, 1, z);
 
     trunk.castShadow = true;
 
     scene.add(trunk);
 
 
-    const leavesGeometry = new THREE.BoxGeometry(
-        2.2,
-        2.2,
-        2.2
+    const leaves =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                2.2,
+                2.2,
+                2.2
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x15803d
+            })
+        );
+
+
+    leaves.position.set(
+        x,
+        2.7,
+        z
     );
 
-    const leavesMaterial = new THREE.MeshStandardMaterial({
-        color: 0x15803d
-    });
-
-    const leaves = new THREE.Mesh(
-        leavesGeometry,
-        leavesMaterial
-    );
-
-    leaves.position.set(x, 2.6, z);
 
     leaves.castShadow = true;
 
@@ -291,12 +337,19 @@ function createTree(x, z) {
 }
 
 
-createTree(-13, 6);
-createTree(-13, -3);
-createTree(-3, -10);
-createTree(6, 10);
-createTree(13, 4);
-createTree(14, -9);
+[
+    [-13, 6],
+    [-13, -3],
+    [-3, -10],
+    [6, 11],
+    [14, 4],
+    [14, -9]
+].forEach(
+    position => createTree(
+        position[0],
+        position[1]
+    )
+);
 
 
 /* ======================================================
@@ -305,20 +358,18 @@ createTree(14, -9);
 
 function createBase() {
 
-    const baseGeometry = new THREE.BoxGeometry(
-        3,
-        3,
-        3
-    );
+    const base =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                3,
+                3,
+                3
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x7c3aed
+            })
+        );
 
-    const baseMaterial = new THREE.MeshStandardMaterial({
-        color: 0x7c3aed
-    });
-
-    const base = new THREE.Mesh(
-        baseGeometry,
-        baseMaterial
-    );
 
     base.position.set(
         15,
@@ -326,25 +377,24 @@ function createBase() {
         9
     );
 
+
     base.castShadow = true;
 
     scene.add(base);
 
 
-    const roofGeometry = new THREE.ConeGeometry(
-        2.4,
-        2,
-        4
-    );
+    const roof =
+        new THREE.Mesh(
+            new THREE.ConeGeometry(
+                2.4,
+                2,
+                4
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xf97316
+            })
+        );
 
-    const roofMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf97316
-    });
-
-    const roof = new THREE.Mesh(
-        roofGeometry,
-        roofMaterial
-    );
 
     roof.position.set(
         15,
@@ -352,18 +402,22 @@ function createBase() {
         9
     );
 
-    roof.rotation.y = Math.PI / 4;
+
+    roof.rotation.y =
+        Math.PI / 4;
+
 
     roof.castShadow = true;
 
     scene.add(roof);
 }
 
+
 createBase();
 
 
 /* ======================================================
-   ENEMY SYSTEM
+   ENEMIES
 ====================================================== */
 
 const enemies = [];
@@ -389,32 +443,46 @@ function createEnemy() {
     };
 
 
-    const bodyGeometry = new THREE.BoxGeometry(
-        1.2,
-        1.2,
-        1.2
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                1.2,
+                1.2,
+                1.2
+            ),
+            enemyMaterial
+        );
+
+
+    body.position.copy(
+        pathPoints[0]
     );
 
-    const body = new THREE.Mesh(
-        bodyGeometry,
-        enemyMaterial
-    );
+
+    body.position.y = 0.7;
+
 
     body.castShadow = true;
 
 
-    /* Eyes */
+    /*
+    FACE
+    */
 
-    const eyeGeometry = new THREE.BoxGeometry(
-        0.2,
-        0.2,
-        0.1
-    );
+    const eyeGeometry =
+        new THREE.BoxGeometry(
+            0.18,
+            0.18,
+            0.1
+        );
 
-    const leftEye = new THREE.Mesh(
-        eyeGeometry,
-        enemyFaceMaterial
-    );
+
+    const leftEye =
+        new THREE.Mesh(
+            eyeGeometry,
+            enemyFaceMaterial
+        );
+
 
     leftEye.position.set(
         -0.25,
@@ -422,13 +490,16 @@ function createEnemy() {
         -0.61
     );
 
+
     body.add(leftEye);
 
 
-    const rightEye = new THREE.Mesh(
-        eyeGeometry,
-        enemyFaceMaterial
-    );
+    const rightEye =
+        new THREE.Mesh(
+            eyeGeometry,
+            enemyFaceMaterial
+        );
+
 
     rightEye.position.set(
         0.25,
@@ -436,32 +507,35 @@ function createEnemy() {
         -0.61
     );
 
+
     body.add(rightEye);
 
 
     enemy.mesh = body;
 
-    enemy.mesh.position.copy(pathPoints[0]);
-
-    enemyGroup.add(enemy.mesh);
+    enemyGroup.add(body);
 
     enemies.push(enemy);
 }
 
 
 /* ======================================================
-   REMOVE ENEMY
+   ENEMY DEATH
 ====================================================== */
 
-function removeEnemy(enemy) {
+function killEnemy(enemy) {
 
     if (!enemy.alive) {
         return;
     }
 
+
     enemy.alive = false;
 
-    enemyGroup.remove(enemy.mesh);
+    enemyGroup.remove(
+        enemy.mesh
+    );
+
 
     GAME.coins += enemy.reward;
 
@@ -470,21 +544,25 @@ function removeEnemy(enemy) {
 
 
 /* ======================================================
-   DAMAGE ENEMY
+   DAMAGE
 ====================================================== */
 
-function damageEnemy(enemy, amount) {
+function damageEnemy(
+    enemy,
+    amount
+) {
 
     if (!enemy.alive) {
         return;
     }
 
+
     enemy.health -= amount;
+
 
     if (enemy.health <= 0) {
 
-        removeEnemy(enemy);
-
+        killEnemy(enemy);
     }
 }
 
@@ -495,9 +573,14 @@ function damageEnemy(enemy, amount) {
 
 function updateEnemies(delta) {
 
-    for (let i = enemies.length - 1; i >= 0; i--) {
+    for (
+        let i = enemies.length - 1;
+        i >= 0;
+        i--
+    ) {
 
         const enemy = enemies[i];
+
 
         if (!enemy.alive) {
 
@@ -507,21 +590,33 @@ function updateEnemies(delta) {
         }
 
 
-        const target = pathPoints[enemy.pathIndex + 1];
+        const nextPoint =
+            pathPoints[
+                enemy.pathIndex + 1
+            ];
 
-        if (!target) {
+
+        if (!nextPoint) {
 
             enemy.alive = false;
 
-            enemyGroup.remove(enemy.mesh);
+            enemyGroup.remove(
+                enemy.mesh
+            );
+
 
             GAME.baseHealth -= 10;
 
             updateUI();
 
-            if (GAME.baseHealth <= 0) {
+
+            if (
+                GAME.baseHealth <= 0
+            ) {
+
                 endGame();
             }
+
 
             enemies.splice(i, 1);
 
@@ -529,9 +624,13 @@ function updateEnemies(delta) {
         }
 
 
-        const direction = new THREE.Vector3()
-            .subVectors(target, enemy.mesh.position)
-            .normalize();
+        const direction =
+            new THREE.Vector3()
+                .subVectors(
+                    nextPoint,
+                    enemy.mesh.position
+                )
+                .normalize();
 
 
         enemy.mesh.position.addScaledVector(
@@ -540,11 +639,10 @@ function updateEnemies(delta) {
         );
 
 
-        enemy.mesh.lookAt(target);
-
-
         if (
-            enemy.mesh.position.distanceTo(target) < 0.3
+            enemy.mesh.position.distanceTo(
+                nextPoint
+            ) < 0.35
         ) {
 
             enemy.pathIndex++;
@@ -554,7 +652,7 @@ function updateEnemies(delta) {
 
 
 /* ======================================================
-   TOWER SYSTEM
+   TOWERS
 ====================================================== */
 
 const towers = [];
@@ -564,15 +662,21 @@ const TOWER_COST = 50;
 
 function createTower(position) {
 
-    if (GAME.coins < TOWER_COST) {
+    if (
+        GAME.coins <
+        TOWER_COST
+    ) {
 
-        showMessage("Not enough coins!");
+        showMessage(
+            "Not enough coins!"
+        );
 
         return;
     }
 
 
-    GAME.coins -= TOWER_COST;
+    GAME.coins -=
+        TOWER_COST;
 
 
     const tower = {
@@ -591,94 +695,123 @@ function createTower(position) {
     };
 
 
-    const baseGeometry = new THREE.BoxGeometry(
-        1.6,
-        1.2,
-        1.6
+    const towerBase =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                1.6,
+                1.2,
+                1.6
+            ),
+            towerMaterial
+        );
+
+
+    towerBase.position.y =
+        0.6;
+
+
+    towerBase.castShadow = true;
+
+
+    const towerTop =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                1,
+                1.4,
+                1
+            ),
+            towerTopMaterial
+        );
+
+
+    towerTop.position.y =
+        1.9;
+
+
+    towerTop.castShadow = true;
+
+
+    towerBase.add(
+        towerTop
     );
 
-    const base = new THREE.Mesh(
-        baseGeometry,
-        towerMaterial
-    );
 
-    base.position.y = 0.6;
+    const barrel =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                0.35,
+                0.35,
+                1.6
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x374151
+            })
+        );
 
-    base.castShadow = true;
-
-
-    const topGeometry = new THREE.BoxGeometry(
-        1,
-        1.4,
-        1
-    );
-
-    const top = new THREE.Mesh(
-        topGeometry,
-        towerTopMaterial
-    );
-
-    top.position.y = 1.9;
-
-    top.castShadow = true;
-
-    base.add(top);
-
-
-    const barrelGeometry = new THREE.BoxGeometry(
-        0.35,
-        0.35,
-        1.6
-    );
-
-    const barrelMaterial = new THREE.MeshStandardMaterial({
-        color: 0x374151
-    });
-
-    const barrel = new THREE.Mesh(
-        barrelGeometry,
-        barrelMaterial
-    );
 
     barrel.position.set(
         0,
-        1.9,
+        0,
         -0.8
     );
 
-    top.add(barrel);
+
+    towerTop.add(
+        barrel
+    );
 
 
-    tower.mesh = base;
+    tower.mesh =
+        towerBase;
 
-    tower.mesh.position.copy(position);
 
-    towerGroup.add(tower.mesh);
+    tower.mesh.position.copy(
+        position
+    );
 
-    towers.push(tower);
+
+    towerGroup.add(
+        tower.mesh
+    );
+
+
+    towers.push(
+        tower
+    );
+
 
     updateUI();
 
-    showMessage("Tower placed!");
 
-    GAME.towerMode = false;
+    showMessage(
+        "🏰 Tower placed!"
+    );
 
-    towerButton.textContent = "🏹 TOWER — $50";
+
+    GAME.towerMode =
+        false;
+
+
+    towerButton.textContent =
+        "🏹 TOWER — $50";
 }
 
 
 /* ======================================================
-   FIND TARGET
+   TARGETING
 ====================================================== */
 
 function findTarget(tower) {
 
-    let closestEnemy = null;
+    let bestTarget = null;
 
-    let closestDistance = Infinity;
+    let bestDistance =
+        Infinity;
 
 
-    for (const enemy of enemies) {
+    for (
+        const enemy of enemies
+    ) {
 
         if (!enemy.alive) {
             continue;
@@ -693,50 +826,56 @@ function findTarget(tower) {
 
         if (
             distance <= tower.range &&
-            distance < closestDistance
+            distance < bestDistance
         ) {
 
-            closestDistance = distance;
+            bestDistance =
+                distance;
 
-            closestEnemy = enemy;
+            bestTarget =
+                enemy;
         }
     }
 
 
-    return closestEnemy;
+    return bestTarget;
 }
 
 
 /* ======================================================
-   PROJECTILE SYSTEM
+   PROJECTILES
 ====================================================== */
 
 const projectiles = [];
 
 
-function fireProjectile(tower, target) {
+function fireProjectile(
+    tower,
+    target
+) {
 
-    const geometry = new THREE.SphereGeometry(
-        0.18,
-        8,
-        8
-    );
-
-
-    const projectile = new THREE.Mesh(
-        geometry,
-        projectileMaterial
-    );
+    const projectile =
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                0.2,
+                8,
+                8
+            ),
+            projectileMaterial
+        );
 
 
     projectile.position.copy(
         tower.mesh.position
     );
 
+
     projectile.position.y += 2;
 
 
-    projectileGroup.add(projectile);
+    projectileGroup.add(
+        projectile
+    );
 
 
     projectiles.push({
@@ -745,7 +884,7 @@ function fireProjectile(tower, target) {
 
         target: target,
 
-        speed: 12,
+        speed: 14,
 
         damage: tower.damage
     });
@@ -753,10 +892,12 @@ function fireProjectile(tower, target) {
 
 
 /* ======================================================
-   UPDATE PROJECTILES
+   PROJECTILE UPDATE
 ====================================================== */
 
-function updateProjectiles(delta) {
+function updateProjectiles(
+    delta
+) {
 
     for (
         let i = projectiles.length - 1;
@@ -764,7 +905,8 @@ function updateProjectiles(delta) {
         i--
     ) {
 
-        const projectile = projectiles[i];
+        const projectile =
+            projectiles[i];
 
 
         if (
@@ -776,18 +918,22 @@ function updateProjectiles(delta) {
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+            projectiles.splice(
+                i,
+                1
+            );
 
             continue;
         }
 
 
-        const direction = new THREE.Vector3()
-            .subVectors(
-                projectile.target.mesh.position,
-                projectile.mesh.position
-            )
-            .normalize();
+        const direction =
+            new THREE.Vector3()
+                .subVectors(
+                    projectile.target.mesh.position,
+                    projectile.mesh.position
+                )
+                .normalize();
 
 
         projectile.mesh.position.addScaledVector(
@@ -812,21 +958,28 @@ function updateProjectiles(delta) {
                 projectile.mesh
             );
 
-            projectiles.splice(i, 1);
+
+            projectiles.splice(
+                i,
+                1
+            );
         }
     }
 }
 
 
 /* ======================================================
-   UPDATE TOWERS
+   TOWER UPDATE
 ====================================================== */
 
 function updateTowers(delta) {
 
-    for (const tower of towers) {
+    for (
+        const tower of towers
+    ) {
 
-        tower.cooldown -= delta;
+        tower.cooldown -=
+            delta;
 
 
         if (
@@ -837,7 +990,8 @@ function updateTowers(delta) {
             ) > tower.range
         ) {
 
-            tower.target = findTarget(tower);
+            tower.target =
+                findTarget(tower);
         }
 
 
@@ -851,19 +1005,28 @@ function updateTowers(delta) {
                 tower.target
             );
 
-            tower.cooldown = tower.fireRate;
+
+            tower.cooldown =
+                tower.fireRate;
         }
 
 
         if (tower.target) {
 
-            const targetPosition =
+            const target =
                 tower.target.mesh.position.clone();
 
-            targetPosition.y = 1.9;
 
-            tower.mesh.children[0].lookAt(
-                targetPosition
+            target.y =
+                1.9;
+
+
+            const towerHead =
+                tower.mesh.children[0];
+
+
+            towerHead.lookAt(
+                target
             );
         }
     }
@@ -871,38 +1034,44 @@ function updateTowers(delta) {
 
 
 /* ======================================================
-   WAVE SYSTEM
+   WAVES
 ====================================================== */
 
 function startWave() {
 
-    if (GAME.waveRunning || GAME.gameOver) {
+    if (
+        GAME.waveRunning ||
+        GAME.gameOver
+    ) {
         return;
     }
 
 
-    GAME.waveRunning = true;
+    GAME.waveRunning =
+        true;
+
 
     GAME.enemiesToSpawn =
         4 + GAME.wave * 2;
 
-    GAME.enemiesSpawned = 0;
 
-    GAME.spawnTimer = 0;
+    GAME.enemiesSpawned =
+        0;
+
+
+    GAME.spawnTimer =
+        0;
 
 
     startWaveButton.textContent =
         "🌊 WAVE RUNNING";
 
+
     showMessage(
-        `Wave ${GAME.wave} started!`
+        `🌊 Wave ${GAME.wave} started!`
     );
 }
 
-
-/* ======================================================
-   SPAWN ENEMIES
-====================================================== */
 
 function updateWave(delta) {
 
@@ -911,7 +1080,8 @@ function updateWave(delta) {
     }
 
 
-    GAME.spawnTimer -= delta;
+    GAME.spawnTimer -=
+        delta;
 
 
     if (
@@ -922,9 +1092,16 @@ function updateWave(delta) {
 
         createEnemy();
 
+
         GAME.enemiesSpawned++;
 
-        GAME.spawnTimer = 0.8;
+
+        GAME.spawnTimer =
+            Math.max(
+                0.45,
+                0.9 -
+                GAME.wave * 0.02
+            );
     }
 
 
@@ -934,82 +1111,121 @@ function updateWave(delta) {
         enemies.length === 0
     ) {
 
-        GAME.waveRunning = false;
+        GAME.waveRunning =
+            false;
+
 
         GAME.wave++;
 
+
         GAME.coins += 25;
 
+
         updateUI();
+
 
         startWaveButton.textContent =
             "▶ START WAVE";
 
+
         showMessage(
-            "Wave complete! +25 coins"
+            "🏆 Wave complete! +25 coins"
         );
     }
 }
 
 
 /* ======================================================
-   UI
+   PATH COLLISION
 ====================================================== */
 
-function updateUI() {
+function isOnPath(position) {
 
-    coinsElement.textContent =
-        GAME.coins;
-
-    healthElement.textContent =
-        GAME.baseHealth;
-
-    waveElement.textContent =
-        GAME.wave;
-}
+    const PATH_WIDTH =
+        2.2;
 
 
-/* ======================================================
-   MESSAGE SYSTEM
-====================================================== */
+    for (
+        let i = 0;
+        i < pathPoints.length - 1;
+        i++
+    ) {
 
-let messageTimeout = null;
-
-
-function showMessage(message) {
-
-    messageElement.textContent = message;
-
-    messageElement.classList.add("show");
+        const a =
+            pathPoints[i];
 
 
-    clearTimeout(messageTimeout);
+        const b =
+            pathPoints[i + 1];
 
 
-    messageTimeout = setTimeout(() => {
+        const horizontal =
+            Math.abs(
+                b.x - a.x
+            ) >
+            Math.abs(
+                b.z - a.z
+            );
 
-        messageElement.classList.remove("show");
 
-    }, 1800);
-}
+        if (horizontal) {
+
+            const minX =
+                Math.min(
+                    a.x,
+                    b.x
+                ) - 0.8;
 
 
-/* ======================================================
-   GAME OVER
-====================================================== */
+            const maxX =
+                Math.max(
+                    a.x,
+                    b.x
+                ) + 0.8;
 
-function endGame() {
 
-    GAME.gameOver = true;
+            if (
+                position.x >= minX &&
+                position.x <= maxX &&
+                Math.abs(
+                    position.z - a.z
+                ) < PATH_WIDTH
+            ) {
 
-    GAME.waveRunning = false;
+                return true;
+            }
 
-    startWaveButton.textContent =
-        "GAME OVER";
+        } else {
 
-    showMessage(
-        "💀 GAME OVER — Refresh to try again!"
-    );
+            const minZ =
+                Math.min(
+                    a.z,
+                    b.z
+                ) - 0.8;
+
+
+            const maxZ =
+                Math.max(
+                    a.z,
+                    b.z
+                ) + 0.8;
+
+
+            if (
+                position.z >= minZ &&
+                position.z <= maxZ &&
+                Math.abs(
+                    position.x - a.x
+                ) < PATH_WIDTH
+            ) {
+
+                return true;
+            }
+        }
+    }
+
+
+    return false;
 }
 
 
@@ -1017,25 +1233,47 @@ function endGame() {
    TOWER PLACEMENT
 ====================================================== */
 
-const raycaster = new THREE.Raycaster();
+const raycaster =
+    new THREE.Raycaster();
 
-const mouse = new THREE.Vector2();
+
+const mouse =
+    new THREE.Vector2();
 
 
-function getMousePosition(event) {
+const placementPlane =
+    new THREE.Plane(
+        new THREE.Vector3(
+            0,
+            1,
+            0
+        ),
+        0
+    );
+
+
+function getPlacementPosition(
+    event
+) {
 
     const rect =
         renderer.domElement.getBoundingClientRect();
 
 
     mouse.x =
-        ((event.clientX - rect.left) /
-            rect.width) * 2 - 1;
+        (
+            (event.clientX -
+                rect.left) /
+            rect.width
+        ) * 2 - 1;
 
 
     mouse.y =
-        -((event.clientY - rect.top) /
-            rect.height) * 2 + 1;
+        -(
+            (event.clientY -
+                rect.top) /
+            rect.height
+        ) * 2 + 1;
 
 
     raycaster.setFromCamera(
@@ -1044,22 +1282,20 @@ function getMousePosition(event) {
     );
 
 
-    const hits =
-        raycaster.intersectObject(
-            ground
+    const position =
+        new THREE.Vector3();
+
+
+    const hit =
+        raycaster.ray.intersectPlane(
+            placementPlane,
+            position
         );
 
 
-    if (hits.length === 0) {
+    if (!hit) {
         return null;
     }
-
-
-    const position =
-        hits[0].point.clone();
-
-
-    position.y = 0;
 
 
     return position;
@@ -1067,64 +1303,90 @@ function getMousePosition(event) {
 
 
 /* ======================================================
-   CLICK HANDLER
+   MAP CLICK
 ====================================================== */
 
 renderer.domElement.addEventListener(
-    "click",
+    "pointerdown",
     event => {
 
         if (
             !GAME.towerMode ||
             GAME.gameOver
         ) {
+
             return;
         }
 
 
         const position =
-            getMousePosition(event);
+            getPlacementPosition(
+                event
+            );
 
 
         if (!position) {
+
+            showMessage(
+                "Can't place a tower here."
+            );
+
             return;
         }
 
 
         /*
-        Don't allow towers directly
-        on the enemy path.
+        Keep towers inside the map.
         */
 
-        for (let i = 0; i < pathPoints.length - 1; i++) {
+        if (
+            position.x < -16 ||
+            position.x > 16 ||
+            position.z < -12 ||
+            position.z > 12
+        ) {
 
-            const a = pathPoints[i];
+            showMessage(
+                "Stay inside the map!"
+            );
 
-            const b = pathPoints[i + 1];
+            return;
+        }
 
 
-            const minX =
-                Math.min(a.x, b.x) - 1.2;
+        /*
+        Don't place on the path.
+        */
 
-            const maxX =
-                Math.max(a.x, b.x) + 1.2;
+        if (
+            isOnPath(position)
+        ) {
 
-            const minZ =
-                Math.min(a.z, b.z) - 1.2;
+            showMessage(
+                "🚫 You can't place a tower on the path!"
+            );
 
-            const maxZ =
-                Math.max(a.z, b.z) + 1.2;
+            return;
+        }
 
+
+        /*
+        Don't place too close
+        to another tower.
+        */
+
+        for (
+            const tower of towers
+        ) {
 
             if (
-                position.x >= minX &&
-                position.x <= maxX &&
-                position.z >= minZ &&
-                position.z <= maxZ
+                tower.mesh.position.distanceTo(
+                    position
+                ) < 2
             ) {
 
                 showMessage(
-                    "You can't place a tower on the path!"
+                    "🚫 Too close to another tower!"
                 );
 
                 return;
@@ -1132,13 +1394,15 @@ renderer.domElement.addEventListener(
         }
 
 
-        createTower(position);
+        createTower(
+            position
+        );
     }
 );
 
 
 /* ======================================================
-   BUTTON EVENTS
+   START WAVE BUTTON
 ====================================================== */
 
 startWaveButton.addEventListener(
@@ -1146,6 +1410,10 @@ startWaveButton.addEventListener(
     startWave
 );
 
+
+/* ======================================================
+   TOWER BUTTON
+====================================================== */
 
 towerButton.addEventListener(
     "click",
@@ -1156,10 +1424,13 @@ towerButton.addEventListener(
         }
 
 
-        if (GAME.coins < TOWER_COST) {
+        if (
+            GAME.coins <
+            TOWER_COST
+        ) {
 
             showMessage(
-                "You need 50 coins!"
+                "💰 You need 50 coins!"
             );
 
             return;
@@ -1170,13 +1441,16 @@ towerButton.addEventListener(
             !GAME.towerMode;
 
 
-        if (GAME.towerMode) {
+        if (
+            GAME.towerMode
+        ) {
 
             towerButton.textContent =
                 "❌ CANCEL TOWER";
 
+
             showMessage(
-                "Click the map to place your tower!"
+                "🏹 Click an empty area to place your tower!"
             );
 
         } else {
@@ -1189,7 +1463,105 @@ towerButton.addEventListener(
 
 
 /* ======================================================
-   WINDOW RESIZE
+   UI
+====================================================== */
+
+function updateUI() {
+
+    coinsElement.textContent =
+        GAME.coins;
+
+
+    healthElement.textContent =
+        Math.max(
+            0,
+            GAME.baseHealth
+        );
+
+
+    waveElement.textContent =
+        GAME.wave;
+}
+
+
+/* ======================================================
+   MESSAGE
+====================================================== */
+
+let messageTimeout;
+
+
+function showMessage(
+    message
+) {
+
+    messageElement.textContent =
+        message;
+
+
+    messageElement.classList.add(
+        "show"
+    );
+
+
+    clearTimeout(
+        messageTimeout
+    );
+
+
+    messageTimeout =
+        setTimeout(
+            () => {
+
+                messageElement.classList.remove(
+                    "show"
+                );
+
+            },
+            1800
+        );
+}
+
+
+/* ======================================================
+   GAME OVER
+====================================================== */
+
+function endGame() {
+
+    if (GAME.gameOver) {
+        return;
+    }
+
+
+    GAME.gameOver =
+        true;
+
+
+    GAME.waveRunning =
+        false;
+
+
+    GAME.towerMode =
+        false;
+
+
+    startWaveButton.textContent =
+        "💀 GAME OVER";
+
+
+    towerButton.textContent =
+        "🏹 TOWER — $50";
+
+
+    showMessage(
+        "💀 GAME OVER! Refresh to play again."
+    );
+}
+
+
+/* ======================================================
+   RESIZE
 ====================================================== */
 
 window.addEventListener(
@@ -1199,6 +1571,7 @@ window.addEventListener(
         camera.aspect =
             window.innerWidth /
             window.innerHeight;
+
 
         camera.updateProjectionMatrix();
 
@@ -1215,12 +1588,15 @@ window.addEventListener(
    GAME LOOP
 ====================================================== */
 
-const clock = new THREE.Clock();
+const clock =
+    new THREE.Clock();
 
 
 function animate() {
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+        animate
+    );
 
 
     const delta =
@@ -1230,15 +1606,28 @@ function animate() {
         );
 
 
-    if (!GAME.gameOver) {
+    if (
+        !GAME.gameOver
+    ) {
 
-        updateWave(delta);
+        updateWave(
+            delta
+        );
 
-        updateEnemies(delta);
 
-        updateTowers(delta);
+        updateEnemies(
+            delta
+        );
 
-        updateProjectiles(delta);
+
+        updateTowers(
+            delta
+        );
+
+
+        updateProjectiles(
+            delta
+        );
     }
 
 
@@ -1250,14 +1639,16 @@ function animate() {
 
 
 /* ======================================================
-   START GAME
+   START
 ====================================================== */
 
 updateUI();
 
+
 showMessage(
-    "Welcome to GREAK TOWER!"
+    "🏰 Welcome to GREAK TOWER!"
 );
+
 
 animate();
 ```
