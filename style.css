@@ -1,1 +1,269 @@
+```css
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #111827;
+}
+
+body {
+    position: relative;
+}
+
+/* =========================
+   GAME AREA
+========================= */
+
+#game {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+}
+
+#game canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* =========================
+   TOP HUD
+========================= */
+
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    min-height: 76px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 12px 20px;
+
+    background: rgba(15, 23, 42, 0.92);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+
+    color: white;
+
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* =========================
+   BRAND
+========================= */
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 1px;
+
+    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.brand-icon {
+    font-size: 30px;
+}
+
+/* =========================
+   STATS
+========================= */
+
+.stats {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stat {
+    min-width: 105px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    padding: 10px 14px;
+
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 12px;
+
+    font-size: 16px;
+    font-weight: 700;
+
+    backdrop-filter: blur(8px);
+}
+
+.stat b {
+    font-weight: 900;
+}
+
+/* =========================
+   BOTTOM CONTROLS
+========================= */
+
+#controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    z-index: 20;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+#controls button {
+    border: none;
+    outline: none;
+
+    padding: 14px 22px;
+
+    border-radius: 12px;
+
+    background: rgba(15, 23, 42, 0.95);
+    color: white;
+
+    font-size: 15px;
+    font-weight: 900;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 0 rgba(0, 0, 0, 0.3),
+        0 10px 25px rgba(0, 0, 0, 0.25);
+
+    transition:
+        transform 0.12s ease,
+        filter 0.12s ease;
+}
+
+#controls button:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+}
+
+#controls button:active {
+    transform: translateY(4px);
+    box-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.3),
+        0 5px 15px rgba(0, 0, 0, 0.25);
+}
+
+/* Start wave button */
+
+#startWave {
+    background: #16a34a;
+}
+
+/* Tower button */
+
+#towerButton {
+    background: #2563eb;
+}
+
+/* =========================
+   MESSAGE
+========================= */
+
+#message {
+    position: fixed;
+    top: 95px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    min-width: 220px;
+
+    padding: 11px 18px;
+
+    border-radius: 12px;
+
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity 0.2s ease;
+
+    z-index: 30;
+}
+
+#message.show {
+    opacity: 1;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 700px) {
+
+    #hud {
+        padding: 10px;
+        min-height: 64px;
+    }
+
+    .brand {
+        font-size: 17px;
+    }
+
+    .brand-icon {
+        font-size: 22px;
+    }
+
+    .stats {
+        gap: 5px;
+    }
+
+    .stat {
+        min-width: auto;
+        padding: 8px 9px;
+        font-size: 12px;
+    }
+
+    #controls {
+        width: calc(100% - 20px);
+        bottom: 12px;
+    }
+
+    #controls button {
+        flex: 1;
+        padding: 13px 8px;
+        font-size: 12px;
+    }
+
+    #message {
+        top: 78px;
+    }
+}
+```
