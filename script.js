@@ -1,25 +1,13 @@
 "use strict";
 
 /* =========================================================
-   GREAK TOWER V0.7
-   MULTIPLAYER UPDATE
-========================================================= */
-
+   GREAK TOWER V0.7.1
+   MULTIPLAYER FIX
+   ========================================================= */
 
 /* =========================================================
-   GOOGLE APPS SCRIPT URL
-========================================================= */
-
-/*
-   AFTER DEPLOYING Code.gs:
-
-   Paste your Google Apps Script Web App URL here.
-
-   Example:
-
-   const SERVER_URL =
-       "https://script.google.com/macros/s/XXXXX/exec";
-*/
+   GOOGLE APPS SCRIPT
+   ========================================================= */
 
 const SERVER_URL =
     "https://script.google.com/macros/s/AKfycbzOzf7OKknOGAR_A--H0AVi1a1Rzt2OHQO5oVzYkeTKMATzqbhhoRPMMNLV4INxhvk6Eg/exec";
@@ -27,83 +15,63 @@ const SERVER_URL =
 
 /* =========================================================
    GAME
-========================================================= */
+   ========================================================= */
 
 const GAME = {
 
     coins: 100,
-
     baseHealth: 100,
-
     wave: 1,
-
     xp: 0,
 
     waveRunning: false,
-
     gameOver: false,
-
     victory: false,
 
     maxVictoryWave: 15,
 
     spawnQueue: [],
-
     spawnIndex: 0,
-
     spawnTimer: 0,
 
     waveKills: 0,
-
     totalKills: 0,
 
     towers: [],
-
     enemies: [],
-
     projectiles: [],
-
     effects: [],
 
     selectedTower: null,
-
     selectedTowerType: null,
-
     towerMode: false
-
 };
 
 
 /* =========================================================
    MULTIPLAYER
-========================================================= */
+   ========================================================= */
 
 const MULTI = {
 
     connected: false,
-
     room: null,
-
     player: null,
 
     host: false,
-
     guestOnline: false,
 
     pollTimer: null,
-
     pushTimer: null,
 
     lastRemoteState: null,
-
     syncing: false
-
 };
 
 
 /* =========================================================
    DOM
-========================================================= */
+   ========================================================= */
 
 const $ = id =>
     document.getElementById(id);
@@ -140,8 +108,8 @@ const messageEl =
 
 
 /* =========================================================
-   THREE
-========================================================= */
+   THREE.JS
+   ========================================================= */
 
 const scene =
     new THREE.Scene();
@@ -154,7 +122,7 @@ const camera =
     new THREE.PerspectiveCamera(
         55,
         innerWidth / innerHeight,
-        .1,
+        0.1,
         200
     );
 
@@ -190,8 +158,8 @@ document
 
 
 /* =========================================================
-   LIGHTS
-========================================================= */
+   LIGHTING
+   ========================================================= */
 
 scene.add(
     new THREE.HemisphereLight(
@@ -200,7 +168,6 @@ scene.add(
         1.5
     )
 );
-
 
 const sun =
     new THREE.DirectionalLight(
@@ -221,7 +188,7 @@ scene.add(sun);
 
 /* =========================================================
    GROUND
-========================================================= */
+   ========================================================= */
 
 const ground =
     new THREE.Mesh(
@@ -235,11 +202,10 @@ const ground =
         new THREE.MeshLambertMaterial({
             color: 0x49a942
         })
-
     );
 
 ground.position.y =
-    -.5;
+    -0.5;
 
 ground.receiveShadow =
     true;
@@ -249,7 +215,7 @@ scene.add(ground);
 
 /* =========================================================
    PATH
-========================================================= */
+   ========================================================= */
 
 const pathPoints = [
 
@@ -303,21 +269,14 @@ for (
     const b =
         pathPoints[i + 1];
 
-
     const horizontal =
-        Math.abs(
-            b.x - a.x
-        ) >
-        Math.abs(
-            b.z - a.z
-        );
-
+        Math.abs(b.x - a.x) >
+        Math.abs(b.z - a.z);
 
     const length =
         horizontal
             ? Math.abs(b.x - a.x)
             : Math.abs(b.z - a.z);
-
 
     const mesh =
         new THREE.Mesh(
@@ -328,31 +287,26 @@ for (
                     ? length
                     : 3.5,
 
-                .15,
+                0.15,
 
                 horizontal
                     ? 3.5
                     : length
-
             ),
 
             new THREE.MeshLambertMaterial({
                 color: 0x9b7447
             })
-
         );
-
 
     mesh.position.set(
 
         (a.x + b.x) / 2,
 
-        .05,
+        0.05,
 
         (a.z + b.z) / 2
-
     );
-
 
     scene.add(mesh);
 
@@ -362,27 +316,25 @@ for (
 
 /* =========================================================
    TREES
-========================================================= */
+   ========================================================= */
 
 function createTree(x, z) {
 
     const group =
         new THREE.Group();
 
-
     const trunk =
         new THREE.Mesh(
 
             new THREE.BoxGeometry(
-                .7,
+                0.7,
                 2.8,
-                .7
+                0.7
             ),
 
             new THREE.MeshLambertMaterial({
                 color: 0x6d4528
             })
-
         );
 
     trunk.position.y =
@@ -392,7 +344,6 @@ function createTree(x, z) {
         true;
 
     group.add(trunk);
-
 
     const leaves =
         new THREE.Mesh(
@@ -404,7 +355,6 @@ function createTree(x, z) {
             new THREE.MeshLambertMaterial({
                 color: 0x187d32
             })
-
         );
 
     leaves.position.y =
@@ -414,7 +364,6 @@ function createTree(x, z) {
         true;
 
     group.add(leaves);
-
 
     group.position.set(
         x,
@@ -427,15 +376,15 @@ function createTree(x, z) {
 
 
 [
-    [-14,5],
-    [-14,-4],
-    [-4,-4],
-    [-4,9],
-    [6,9],
-    [7,2],
-    [13,3],
-    [13,-9],
-    [0,-9]
+    [-14, 5],
+    [-14, -4],
+    [-4, -4],
+    [-4, 9],
+    [6, 9],
+    [7, 2],
+    [13, 3],
+    [13, -9],
+    [0, -9]
 ].forEach(p =>
     createTree(
         p[0],
@@ -446,11 +395,10 @@ function createTree(x, z) {
 
 /* =========================================================
    BASE
-========================================================= */
+   ========================================================= */
 
 const base =
     new THREE.Group();
-
 
 const baseBody =
     new THREE.Mesh(
@@ -464,14 +412,12 @@ const baseBody =
         new THREE.MeshLambertMaterial({
             color: 0x7030a0
         })
-
     );
 
 baseBody.position.y =
     1.5;
 
 base.add(baseBody);
-
 
 const roof =
     new THREE.Mesh(
@@ -485,7 +431,6 @@ const roof =
         new THREE.MeshLambertMaterial({
             color: 0xff8c00
         })
-
     );
 
 roof.position.y =
@@ -495,7 +440,6 @@ roof.rotation.y =
     Math.PI / 4;
 
 base.add(roof);
-
 
 base.position.set(
     15,
@@ -508,24 +452,18 @@ scene.add(base);
 
 /* =========================================================
    TOWER TYPES
-========================================================= */
+   ========================================================= */
 
 const TOWER_TYPES = {
 
     archer: {
 
         name: "Archer",
-
         cost: 50,
-
         range: 7,
-
         damage: 20,
-
-        fireRate: .45,
-
+        fireRate: 0.45,
         speed: 15,
-
         color: 0x1976d2
 
     },
@@ -533,17 +471,11 @@ const TOWER_TYPES = {
     cannon: {
 
         name: "Cannon",
-
         cost: 100,
-
         range: 6.5,
-
         damage: 55,
-
         fireRate: 1.5,
-
         speed: 9,
-
         color: 0x444444
 
     },
@@ -551,17 +483,11 @@ const TOWER_TYPES = {
     magic: {
 
         name: "Magic",
-
         cost: 150,
-
         range: 10,
-
         damage: 40,
-
-        fireRate: .8,
-
+        fireRate: 0.8,
         speed: 13,
-
         color: 0x9c27b0
 
     }
@@ -570,23 +496,18 @@ const TOWER_TYPES = {
 
 
 /* =========================================================
-   ENEMIES
-========================================================= */
+   ENEMY TYPES
+   ========================================================= */
 
 const ENEMY_TYPES = {
 
     basic: {
 
         health: 100,
-
         speed: 2.2,
-
         reward: 10,
-
         scale: 1,
-
         color: 0xe53935,
-
         armor: 0
 
     },
@@ -594,15 +515,10 @@ const ENEMY_TYPES = {
     fast: {
 
         health: 60,
-
         speed: 4.2,
-
         reward: 15,
-
-        scale: .82,
-
+        scale: 0.82,
         color: 0x00a86b,
-
         armor: 0
 
     },
@@ -610,32 +526,22 @@ const ENEMY_TYPES = {
     tank: {
 
         health: 300,
-
         speed: 1.15,
-
         reward: 30,
-
         scale: 1.35,
-
         color: 0x4a148c,
-
-        armor: .15
+        armor: 0.15
 
     },
 
     boss: {
 
         health: 1000,
-
-        speed: .85,
-
+        speed: 0.85,
         reward: 100,
-
         scale: 1.8,
-
         color: 0x7f0000,
-
-        armor: .25
+        armor: 0.25
 
     }
 
@@ -643,18 +549,39 @@ const ENEMY_TYPES = {
 
 
 /* =========================================================
-   ENEMY
-========================================================= */
+   UNIQUE IDS
+   ========================================================= */
 
-function createEnemy(type) {
+function makeId(prefix) {
+
+    return (
+        prefix +
+        "_" +
+        Date.now().toString(36) +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2, 9)
+    );
+}
+
+
+/* =========================================================
+   ENEMY CREATION
+   ========================================================= */
+
+function createEnemy(
+    type,
+    forcedId = null
+) {
 
     const data =
         ENEMY_TYPES[type];
 
+    if (!data) return null;
 
     const group =
         new THREE.Group();
-
 
     const body =
         new THREE.Mesh(
@@ -668,7 +595,6 @@ function createEnemy(type) {
             new THREE.MeshLambertMaterial({
                 color: data.color
             })
-
         );
 
     body.position.y =
@@ -676,12 +602,11 @@ function createEnemy(type) {
 
     group.add(body);
 
-
     const head =
         new THREE.Mesh(
 
             new THREE.SphereGeometry(
-                .55,
+                0.55,
                 12,
                 12
             ),
@@ -689,7 +614,6 @@ function createEnemy(type) {
             new THREE.MeshLambertMaterial({
                 color: data.color
             })
-
         );
 
     head.position.y =
@@ -697,50 +621,52 @@ function createEnemy(type) {
 
     group.add(head);
 
-
     group.scale.setScalar(
         data.scale
     );
-
 
     group.position.copy(
         pathPoints[0]
     );
 
-
     scene.add(group);
-
 
     const enemy = {
 
-        type,
+        id:
+            forcedId ||
+            makeId("enemy"),
 
+        type,
         group,
 
-        health: data.health,
+        health:
+            data.health,
 
-        maxHealth: data.health,
+        maxHealth:
+            data.health,
 
-        speed: data.speed,
+        speed:
+            data.speed,
 
-        reward: data.reward,
+        reward:
+            data.reward,
 
-        armor: data.armor,
+        armor:
+            data.armor,
 
         pathIndex: 0
-
     };
 
+    GAME.enemies.push(enemy);
 
-    GAME.enemies.push(
-        enemy
-    );
+    return enemy;
 }
 
 
 /* =========================================================
    WAVE
-========================================================= */
+   ========================================================= */
 
 function buildWave(wave) {
 
@@ -748,7 +674,6 @@ function buildWave(wave) {
 
     const amount =
         4 + wave * 2;
-
 
     for (
         let i = 0;
@@ -759,14 +684,12 @@ function buildWave(wave) {
         let type =
             "basic";
 
-
         if (
             wave >= 2 &&
             i % 4 === 0
         ) {
             type = "fast";
         }
-
 
         if (
             wave >= 3 &&
@@ -775,18 +698,14 @@ function buildWave(wave) {
             type = "tank";
         }
 
-
         queue.push(type);
     }
-
 
     if (
         wave % 5 === 0
     ) {
-
         queue.push("boss");
     }
-
 
     return queue;
 }
@@ -794,7 +713,7 @@ function buildWave(wave) {
 
 /* =========================================================
    START WAVE
-========================================================= */
+   ========================================================= */
 
 function startWave() {
 
@@ -806,12 +725,29 @@ function startWave() {
         return;
     }
 
+    /*
+        IMPORTANT MULTIPLAYER RULE:
+
+        Player 2 does not start a separate local wave.
+        The host owns the shared wave state.
+    */
+
+    if (
+        MULTI.connected &&
+        !MULTI.host
+    ) {
+
+        message(
+            "👑 Player 1 controls the wave."
+        );
+
+        return;
+    }
 
     GAME.spawnQueue =
         buildWave(
             GAME.wave
         );
-
 
     GAME.spawnIndex =
         0;
@@ -825,23 +761,20 @@ function startWave() {
     GAME.waveRunning =
         true;
 
-
     startWaveButton.disabled =
         true;
-
 
     message(
         `🌊 Wave ${GAME.wave} started!`
     );
-
 
     multiplayerPush();
 }
 
 
 /* =========================================================
-   SPAWN
-========================================================= */
+   SPAWNING
+   ========================================================= */
 
 function updateSpawning(delta) {
 
@@ -851,7 +784,6 @@ function updateSpawning(delta) {
         return;
     }
 
-
     if (
         GAME.spawnIndex >=
         GAME.spawnQueue.length
@@ -860,17 +792,14 @@ function updateSpawning(delta) {
         if (
             GAME.enemies.length === 0
         ) {
-
             finishWave();
         }
 
         return;
     }
 
-
     GAME.spawnTimer -=
         delta;
-
 
     if (
         GAME.spawnTimer <= 0
@@ -882,18 +811,17 @@ function updateSpawning(delta) {
             ]
         );
 
-
         GAME.spawnIndex++;
 
         GAME.spawnTimer =
-            .8;
+            0.8;
     }
 }
 
 
 /* =========================================================
    ENEMY UPDATE
-========================================================= */
+   ========================================================= */
 
 function updateEnemies(delta) {
 
@@ -907,12 +835,10 @@ function updateEnemies(delta) {
         const enemy =
             GAME.enemies[i];
 
-
         const target =
             pathPoints[
                 enemy.pathIndex + 1
             ];
-
 
         if (!target) {
 
@@ -921,14 +847,12 @@ function updateEnemies(delta) {
             continue;
         }
 
-
         const direction =
             target.clone()
                 .sub(
                     enemy.group.position
                 )
                 .normalize();
-
 
         enemy.group
             .position
@@ -938,11 +862,10 @@ function updateEnemies(delta) {
                 delta
             );
 
-
         if (
             enemy.group.position
                 .distanceTo(target)
-                < .35
+            < 0.35
         ) {
 
             enemy.pathIndex++;
@@ -953,7 +876,7 @@ function updateEnemies(delta) {
 
 /* =========================================================
    BASE
-========================================================= */
+   ========================================================= */
 
 function reachBase(enemy) {
 
@@ -962,23 +885,19 @@ function reachBase(enemy) {
             ? 20
             : 10;
 
-
     GAME.baseHealth =
         Math.max(
             0,
             GAME.baseHealth
         );
 
-
     removeEnemy(enemy);
 
     updateHUD();
 
-
     if (
         GAME.baseHealth <= 0
     ) {
-
         endGame();
     }
 }
@@ -986,17 +905,20 @@ function reachBase(enemy) {
 
 /* =========================================================
    REMOVE ENEMY
-========================================================= */
+   ========================================================= */
 
 function removeEnemy(enemy) {
+
+    if (!enemy) return;
 
     const index =
         GAME.enemies.indexOf(
             enemy
         );
 
-
-    if (index !== -1) {
+    if (
+        index !== -1
+    ) {
 
         GAME.enemies.splice(
             index,
@@ -1004,36 +926,39 @@ function removeEnemy(enemy) {
         );
     }
 
+    if (enemy.group) {
 
-    scene.remove(
-        enemy.group
-    );
+        scene.remove(
+            enemy.group
+        );
+    }
 }
 
 
 /* =========================================================
    TOWER
-========================================================= */
+   ========================================================= */
 
 function createTower(
     type,
     position,
-    owner = MULTI.player
+    owner = MULTI.player,
+    forcedId = null
 ) {
 
     const data =
         TOWER_TYPES[type];
 
+    if (!data) return null;
 
     const group =
         new THREE.Group();
-
 
     const body =
         new THREE.Mesh(
 
             new THREE.CylinderGeometry(
-                .9,
+                0.9,
                 1.1,
                 1.4,
                 8
@@ -1042,14 +967,12 @@ function createTower(
             new THREE.MeshLambertMaterial({
                 color: data.color
             })
-
         );
 
     body.position.y =
-        .7;
+        0.7;
 
     group.add(body);
-
 
     const turret =
         new THREE.Group();
@@ -1059,93 +982,76 @@ function createTower(
 
     group.add(turret);
 
-
     const head =
         new THREE.Mesh(
 
             new THREE.BoxGeometry(
                 1.1,
-                .7,
+                0.7,
                 1.1
             ),
 
             new THREE.MeshLambertMaterial({
                 color: data.color
             })
-
         );
 
     turret.add(head);
-
 
     const barrel =
         new THREE.Mesh(
 
             new THREE.BoxGeometry(
-                .25,
-                .25,
+                0.25,
+                0.25,
                 1.6
             ),
 
             new THREE.MeshLambertMaterial({
                 color: 0x222222
             })
-
         );
 
     barrel.position.z =
-        -.8;
+        -0.8;
 
     turret.add(barrel);
-
 
     group.position.copy(
         position
     );
 
-
     scene.add(group);
-
 
     const tower = {
 
         id:
-            "tower_" +
-            Date.now() +
-            "_" +
-            Math.random(),
+            forcedId ||
+            makeId("tower"),
 
         type,
-
         owner,
 
         mesh: group,
-
         turret,
 
         level: 1,
-
         cooldown: 0,
 
         targetMode: "First",
 
         spent: data.cost
-
     };
 
-
-    GAME.towers.push(
-        tower
-    );
-
+    GAME.towers.push(tower);
 
     return tower;
 }
 
 
 /* =========================================================
-   TARGET
-========================================================= */
+   TARGETING
+   ========================================================= */
 
 function getTarget(tower) {
 
@@ -1154,11 +1060,9 @@ function getTarget(tower) {
             tower.type
         ];
 
-
     const enemies =
         GAME.enemies.filter(
             enemy =>
-
                 enemy.group
                     .position
                     .distanceTo(
@@ -1167,13 +1071,11 @@ function getTarget(tower) {
                 <= data.range
         );
 
-
     if (
         enemies.length === 0
     ) {
         return null;
     }
-
 
     if (
         tower.targetMode ===
@@ -1181,7 +1083,7 @@ function getTarget(tower) {
     ) {
 
         return enemies.reduce(
-            (a,b) =>
+            (a, b) =>
                 a.health >
                 b.health
                     ? a
@@ -1189,14 +1091,13 @@ function getTarget(tower) {
         );
     }
 
-
     if (
         tower.targetMode ===
         "Closest"
     ) {
 
         return enemies.reduce(
-            (a,b) => {
+            (a, b) => {
 
                 const da =
                     a.group.position
@@ -1217,14 +1118,13 @@ function getTarget(tower) {
         );
     }
 
-
     if (
         tower.targetMode ===
         "Last"
     ) {
 
         return enemies.reduce(
-            (a,b) =>
+            (a, b) =>
                 a.pathIndex <
                 b.pathIndex
                     ? a
@@ -1232,9 +1132,8 @@ function getTarget(tower) {
         );
     }
 
-
     return enemies.reduce(
-        (a,b) =>
+        (a, b) =>
             a.pathIndex >
             b.pathIndex
                 ? a
@@ -1244,8 +1143,8 @@ function getTarget(tower) {
 
 
 /* =========================================================
-   TOWERS
-========================================================= */
+   TOWER UPDATE
+   ========================================================= */
 
 function updateTowers(delta) {
 
@@ -1255,20 +1154,16 @@ function updateTowers(delta) {
             tower.cooldown -=
                 delta;
 
-
             const target =
                 getTarget(tower);
-
 
             if (!target) {
                 return;
             }
 
-
             tower.turret.lookAt(
                 target.group.position
             );
-
 
             if (
                 tower.cooldown <= 0
@@ -1279,12 +1174,10 @@ function updateTowers(delta) {
                     target
                 );
 
-
                 const data =
                     TOWER_TYPES[
                         tower.type
                     ];
-
 
                 tower.cooldown =
                     data.fireRate *
@@ -1292,8 +1185,8 @@ function updateTowers(delta) {
                         tower.level === 1
                             ? 1
                             : tower.level === 2
-                                ? .82
-                                : .68
+                                ? 0.82
+                                : 0.68
                     );
             }
         }
@@ -1303,7 +1196,7 @@ function updateTowers(delta) {
 
 /* =========================================================
    PROJECTILE
-========================================================= */
+   ========================================================= */
 
 function fireProjectile(
     tower,
@@ -1315,14 +1208,13 @@ function fireProjectile(
             tower.type
         ];
 
-
     const projectile =
         new THREE.Mesh(
 
             new THREE.SphereGeometry(
                 tower.type === "cannon"
-                    ? .22
-                    : .14,
+                    ? 0.22
+                    : 0.14,
                 8,
                 8
             ),
@@ -1330,32 +1222,24 @@ function fireProjectile(
             new THREE.MeshBasicMaterial({
                 color: data.color
             })
-
         );
-
 
     projectile.position.copy(
         tower.mesh.position
     );
 
-
     projectile.position.y +=
         1.5;
-
 
     scene.add(
         projectile
     );
 
-
     GAME.projectiles.push({
 
         mesh: projectile,
-
         target,
-
         tower,
-
         speed: data.speed
 
     });
@@ -1364,7 +1248,7 @@ function fireProjectile(
 
 /* =========================================================
    PROJECTILES
-========================================================= */
+   ========================================================= */
 
 function updateProjectiles(delta) {
 
@@ -1377,7 +1261,6 @@ function updateProjectiles(delta) {
 
         const projectile =
             GAME.projectiles[i];
-
 
         if (
             !GAME.enemies.includes(
@@ -1397,7 +1280,6 @@ function updateProjectiles(delta) {
             continue;
         }
 
-
         const direction =
             projectile.target
                 .group
@@ -1407,13 +1289,11 @@ function updateProjectiles(delta) {
                     projectile.mesh.position
                 );
 
-
         const distance =
             direction.length();
 
-
         if (
-            distance < .5
+            distance < 0.5
         ) {
 
             let damage =
@@ -1421,13 +1301,11 @@ function updateProjectiles(delta) {
                     projectile.tower.type
                 ].damage;
 
-
             if (
                 projectile.tower.level === 2
             ) {
                 damage *= 1.5;
             }
-
 
             if (
                 projectile.tower.level === 3
@@ -1435,31 +1313,25 @@ function updateProjectiles(delta) {
                 damage *= 2.2;
             }
 
-
             damageEnemy(
                 projectile.target,
                 damage,
                 projectile.tower.type
             );
 
-
             scene.remove(
                 projectile.mesh
             );
-
 
             GAME.projectiles.splice(
                 i,
                 1
             );
 
-
             continue;
         }
 
-
         direction.normalize();
-
 
         projectile.mesh
             .position
@@ -1474,7 +1346,7 @@ function updateProjectiles(delta) {
 
 /* =========================================================
    DAMAGE
-========================================================= */
+   ========================================================= */
 
 function damageEnemy(
     enemy,
@@ -1490,14 +1362,12 @@ function damageEnemy(
         return;
     }
 
-
     if (
         towerType === "archer" &&
         enemy.type === "fast"
     ) {
         damage *= 1.25;
     }
-
 
     if (
         towerType === "cannon" &&
@@ -1506,7 +1376,6 @@ function damageEnemy(
         damage *= 1.35;
     }
 
-
     if (
         towerType === "magic" &&
         enemy.type === "boss"
@@ -1514,14 +1383,11 @@ function damageEnemy(
         damage *= 1.15;
     }
 
-
     damage *=
         1 - enemy.armor;
 
-
     enemy.health -=
         damage;
-
 
     if (
         enemy.health <= 0
@@ -1534,7 +1400,7 @@ function damageEnemy(
 
 /* =========================================================
    KILL
-========================================================= */
+   ========================================================= */
 
 function killEnemy(enemy) {
 
@@ -1546,26 +1412,18 @@ function killEnemy(enemy) {
         return;
     }
 
-
     GAME.coins +=
         enemy.reward;
-
 
     GAME.xp +=
         enemy.type === "boss"
             ? 100
             : 10;
 
-
     GAME.waveKills++;
-
     GAME.totalKills++;
 
-
-    removeEnemy(
-        enemy
-    );
-
+    removeEnemy(enemy);
 
     updateHUD();
 }
@@ -1573,22 +1431,19 @@ function killEnemy(enemy) {
 
 /* =========================================================
    FINISH WAVE
-========================================================= */
+   ========================================================= */
 
 function finishWave() {
 
     GAME.waveRunning =
         false;
 
-
     const reward =
         25 +
         GAME.wave * 5;
 
-
     GAME.coins +=
         reward;
-
 
     if (
         GAME.wave >=
@@ -1614,7 +1469,6 @@ function finishWave() {
         );
     }
 
-
     updateHUD();
 
     multiplayerPush();
@@ -1622,8 +1476,8 @@ function finishWave() {
 
 
 /* =========================================================
-   END GAME
-========================================================= */
+   GAME OVER
+   ========================================================= */
 
 function endGame() {
 
@@ -1633,11 +1487,9 @@ function endGame() {
     GAME.waveRunning =
         false;
 
-
     message(
         "💀 GAME OVER"
     );
-
 
     multiplayerPush();
 }
@@ -1645,7 +1497,7 @@ function endGame() {
 
 /* =========================================================
    HUD
-========================================================= */
+   ========================================================= */
 
 function updateHUD() {
 
@@ -1662,15 +1514,19 @@ function updateHUD() {
 
     xpEl.textContent =
         GAME.xp;
+
+    startWaveButton.disabled =
+        GAME.waveRunning ||
+        GAME.gameOver ||
+        GAME.victory;
 }
 
 
 /* =========================================================
    MESSAGE
-========================================================= */
+   ========================================================= */
 
 let messageTimer;
-
 
 function message(
     text,
@@ -1680,15 +1536,12 @@ function message(
     messageEl.innerHTML =
         text;
 
-
     messageEl.style.opacity =
         "1";
-
 
     clearTimeout(
         messageTimer
     );
-
 
     messageTimer =
         setTimeout(
@@ -1704,8 +1557,8 @@ function message(
 
 
 /* =========================================================
-   MULTIPLAYER PANEL
-========================================================= */
+   MULTIPLAYER MENU
+   ========================================================= */
 
 function multiplayerMenu() {
 
@@ -1717,7 +1570,6 @@ function multiplayerMenu() {
 
         return;
     }
-
 
     openPanel(
 
@@ -1777,12 +1629,11 @@ function multiplayerMenu() {
 
 /* =========================================================
    CREATE ROOM
-========================================================= */
+   ========================================================= */
 
 async function createMultiplayerRoom() {
 
     closePanel();
-
 
     if (
         SERVER_URL.includes(
@@ -1797,11 +1648,9 @@ async function createMultiplayerRoom() {
         return;
     }
 
-
     message(
         "🌐 Creating room..."
     );
-
 
     try {
 
@@ -1811,18 +1660,16 @@ async function createMultiplayerRoom() {
                 "?action=create"
             );
 
-
         const data =
             await response.json();
-
 
         if (!data.ok) {
 
             throw new Error(
-                data.error
+                data.error ||
+                "Could not create room."
             );
         }
-
 
         MULTI.room =
             data.room;
@@ -1836,17 +1683,33 @@ async function createMultiplayerRoom() {
         MULTI.connected =
             true;
 
-
         updateConnectionUI();
-
 
         showRoomPanel();
 
-
         startMultiplayerPolling();
 
+        /*
+            FIX #1:
+
+            The original V0.7 created the host room
+            but never started this loop.
+
+            Now the host continuously publishes
+            the authoritative game state.
+        */
+
+        startStateSync();
+
+        /*
+            Immediately send the initial state.
+        */
+
+        multiplayerPush();
 
     } catch (error) {
+
+        console.error(error);
 
         message(
             "❌ Could not create room."
@@ -1857,7 +1720,7 @@ async function createMultiplayerRoom() {
 
 /* =========================================================
    JOIN ROOM
-========================================================= */
+   ========================================================= */
 
 function showJoinRoom() {
 
@@ -1912,15 +1775,12 @@ async function joinMultiplayerRoom() {
             "roomCodeInput"
         );
 
-
     if (!input) return;
-
 
     const code =
         input.value
             .trim()
             .toUpperCase();
-
 
     if (
         code.length !== 6
@@ -1933,14 +1793,11 @@ async function joinMultiplayerRoom() {
         return;
     }
 
-
     closePanel();
-
 
     message(
         "🌐 Joining room..."
     );
-
 
     try {
 
@@ -1953,22 +1810,19 @@ async function joinMultiplayerRoom() {
             ) +
             "&player=guest";
 
-
         const response =
             await fetch(url);
-
 
         const data =
             await response.json();
 
-
         if (!data.ok) {
 
             throw new Error(
-                data.error
+                data.error ||
+                "Could not join room."
             );
         }
-
 
         MULTI.room =
             data.room;
@@ -1982,19 +1836,17 @@ async function joinMultiplayerRoom() {
         MULTI.connected =
             true;
 
-
         updateConnectionUI();
 
-
         startMultiplayerPolling();
-
 
         message(
             "🤝 Joined room!"
         );
 
-
     } catch (error) {
+
+        console.error(error);
 
         message(
             "❌ " +
@@ -2006,7 +1858,7 @@ async function joinMultiplayerRoom() {
 
 /* =========================================================
    ROOM PANEL
-========================================================= */
+   ========================================================= */
 
 function showRoomPanel() {
 
@@ -2015,12 +1867,10 @@ function showRoomPanel() {
             ? "👑 YOU ARE HOST"
             : "👤 YOU ARE PLAYER 2";
 
-
     const guest =
         MULTI.guestOnline
             ? "🟢 Player 2 connected"
             : "🟡 Waiting for Player 2";
-
 
     openPanel(
 
@@ -2092,7 +1942,7 @@ function showRoomPanel() {
 
 /* =========================================================
    MULTIPLAYER POLLING
-========================================================= */
+   ========================================================= */
 
 function startMultiplayerPolling() {
 
@@ -2100,13 +1950,11 @@ function startMultiplayerPolling() {
         MULTI.pollTimer
     );
 
-
     MULTI.pollTimer =
         setInterval(
             multiplayerPoll,
             1000
         );
-
 
     multiplayerPoll();
 }
@@ -2121,7 +1969,6 @@ async function multiplayerPoll() {
         return;
     }
 
-
     try {
 
         const url =
@@ -2134,14 +1981,11 @@ async function multiplayerPoll() {
             "&player=" +
             MULTI.player;
 
-
         const response =
             await fetch(url);
 
-
         const data =
             await response.json();
-
 
         if (!data.ok) {
 
@@ -2154,17 +1998,16 @@ async function multiplayerPoll() {
             return;
         }
 
-
         MULTI.guestOnline =
             data.guestOnline;
 
-
         updateConnectionUI();
 
-
         /*
-           ONLY THE GUEST RECEIVES
-           THE HOST'S GAME STATE.
+            PLAYER 2 receives the host's state.
+
+            The important part is that rendering NEVER
+            stops while this happens.
         */
 
         if (
@@ -2177,8 +2020,12 @@ async function multiplayerPoll() {
             );
         }
 
-
     } catch (error) {
+
+        console.warn(
+            "Multiplayer polling error:",
+            error
+        );
 
         updateConnectionUI(
             false
@@ -2188,15 +2035,14 @@ async function multiplayerPoll() {
 
 
 /* =========================================================
-   HOST STATE PUSH
-========================================================= */
+   HOST STATE SYNC
+   ========================================================= */
 
 function startStateSync() {
 
     clearInterval(
         MULTI.pushTimer
     );
-
 
     MULTI.pushTimer =
         setInterval(
@@ -2216,6 +2062,10 @@ function startStateSync() {
 }
 
 
+/* =========================================================
+   HOST PUSH
+   ========================================================= */
+
 async function multiplayerPush() {
 
     if (
@@ -2226,16 +2076,13 @@ async function multiplayerPush() {
         return;
     }
 
-
     const state =
         serializeGame();
-
 
     const encoded =
         encodeURIComponent(
             JSON.stringify(state)
         );
-
 
     try {
 
@@ -2250,12 +2097,14 @@ async function multiplayerPush() {
             "&state=" +
             encoded;
 
-
-        await fetch(
-            url
-        );
+        await fetch(url);
 
     } catch (error) {
+
+        console.warn(
+            "State push failed:",
+            error
+        );
 
         updateConnectionUI(
             false
@@ -2266,7 +2115,7 @@ async function multiplayerPush() {
 
 /* =========================================================
    SERIALIZE GAME
-========================================================= */
+   ========================================================= */
 
 function serializeGame() {
 
@@ -2322,13 +2171,24 @@ function serializeGame() {
 
                     targetMode:
                         tower.targetMode
-
                 })
             ),
 
         enemies:
             GAME.enemies.map(
                 enemy => ({
+
+                    /*
+                        FIX #2:
+                        Stable enemy IDs.
+
+                        V0.7 used array positions.
+                        That becomes unreliable when an
+                        enemy dies while another is spawned.
+                    */
+
+                    id:
+                        enemy.id,
 
                     type:
                         enemy.type,
@@ -2346,28 +2206,26 @@ function serializeGame() {
 
                     pathIndex:
                         enemy.pathIndex
-
                 })
             )
-
     };
 }
 
 
 /* =========================================================
    APPLY REMOTE STATE
-========================================================= */
+   ========================================================= */
 
 function applyRemoteState(
     state
 ) {
 
-    if (!state) return;
-
+    if (!state) {
+        return;
+    }
 
     MULTI.syncing =
         true;
-
 
     GAME.coins =
         state.coins;
@@ -2393,19 +2251,15 @@ function applyRemoteState(
     GAME.totalKills =
         state.totalKills;
 
-
     syncTowers(
         state.towers || []
     );
-
 
     syncEnemies(
         state.enemies || []
     );
 
-
     updateHUD();
-
 
     MULTI.syncing =
         false;
@@ -2414,7 +2268,7 @@ function applyRemoteState(
 
 /* =========================================================
    SYNC TOWERS
-========================================================= */
+   ========================================================= */
 
 function syncTowers(
     remoteTowers
@@ -2425,11 +2279,6 @@ function syncTowers(
             tower => tower.id
         );
 
-
-    /*
-       CREATE MISSING TOWERS
-    */
-
     remoteTowers.forEach(
         remote => {
 
@@ -2439,7 +2288,6 @@ function syncTowers(
                         t.id ===
                         remote.id
                 );
-
 
             if (!tower) {
 
@@ -2454,15 +2302,15 @@ function syncTowers(
                             remote.z
                         ),
 
-                        remote.owner
+                        remote.owner,
 
+                        remote.id
                     );
-
-
-                tower.id =
-                    remote.id;
             }
 
+            if (!tower) {
+                return;
+            }
 
             tower.level =
                 remote.level;
@@ -2476,20 +2324,13 @@ function syncTowers(
             tower.mesh.position.z =
                 remote.z;
 
-
             tower.mesh.scale.setScalar(
                 1 +
-                .08 *
+                0.08 *
                 (tower.level - 1)
             );
         }
     );
-
-
-    /*
-       REMOVE TOWERS THAT
-       NO LONGER EXIST
-    */
 
     for (
         let i =
@@ -2500,7 +2341,6 @@ function syncTowers(
 
         const tower =
             GAME.towers[i];
-
 
         if (
             !remoteIds.includes(
@@ -2523,67 +2363,123 @@ function syncTowers(
 
 /* =========================================================
    SYNC ENEMIES
-========================================================= */
+   ========================================================= */
 
 function syncEnemies(
     remoteEnemies
 ) {
 
     /*
-       For V0.7 the host is
-       authoritative.
+        FIX #3:
 
-       Guest visually follows
-       the host's enemy state.
+        Match enemies by ID instead of array index.
     */
 
-    while (
-        GAME.enemies.length >
-        remoteEnemies.length
+    const remoteIds =
+        new Set(
+            remoteEnemies
+                .map(
+                    enemy => enemy.id
+                )
+                .filter(Boolean)
+        );
+
+    /*
+        Remove enemies that no longer
+        exist on the host.
+    */
+
+    for (
+        let i =
+            GAME.enemies.length - 1;
+        i >= 0;
+        i--
     ) {
 
-        removeEnemy(
-            GAME.enemies[
-                GAME.enemies.length - 1
-            ]
-        );
+        const enemy =
+            GAME.enemies[i];
+
+        if (
+            enemy.id &&
+            !remoteIds.has(
+                enemy.id
+            )
+        ) {
+
+            removeEnemy(
+                enemy
+            );
+        }
     }
 
+    /*
+        Add/update enemies.
+    */
 
     remoteEnemies.forEach(
-        (remote, index) => {
+        remote => {
+
+            if (!remote.id) {
+                return;
+            }
 
             let enemy =
-                GAME.enemies[index];
+                GAME.enemies.find(
+                    e =>
+                        e.id ===
+                        remote.id
+                );
 
+            if (!enemy) {
+
+                enemy =
+                    createEnemy(
+                        remote.type,
+                        remote.id
+                    );
+            }
+
+            if (!enemy) {
+                return;
+            }
+
+            /*
+                If the type somehow differs,
+                recreate it.
+            */
 
             if (
-                !enemy ||
                 enemy.type !==
                 remote.type
             ) {
 
-                if (enemy) {
-                    removeEnemy(enemy);
-                }
-
-
-                createEnemy(
-                    remote.type
+                removeEnemy(
+                    enemy
                 );
 
-
                 enemy =
-                    GAME.enemies[
-                        GAME.enemies.length - 1
-                    ];
+                    createEnemy(
+                        remote.type,
+                        remote.id
+                    );
             }
 
+            if (!enemy) {
+                return;
+            }
 
-            enemy.group.position.x =
+            /*
+                Host position is authoritative.
+            */
+
+            enemy.group
+                .position
+                .x =
                 remote.x;
 
-            enemy.group.position.z =
+            enemy.group
+                .position
+                .z =
                 remote.z;
 
             enemy.health =
@@ -2598,7 +2494,7 @@ function syncEnemies(
 
 /* =========================================================
    CONNECTION UI
-========================================================= */
+   ========================================================= */
 
 function updateConnectionUI(
     forceOffline = false
@@ -2618,13 +2514,11 @@ function updateConnectionUI(
         return;
     }
 
-
     connectionDot.style.background =
         MULTI.guestOnline ||
         !MULTI.host
             ? "#24d05a"
             : "#ffc107";
-
 
     connectionText.textContent =
         MULTI.host
@@ -2638,8 +2532,8 @@ function updateConnectionUI(
 
 
 /* =========================================================
-   LEAVE
-========================================================= */
+   LEAVE MULTIPLAYER
+   ========================================================= */
 
 async function leaveMultiplayer() {
 
@@ -2656,8 +2550,9 @@ async function leaveMultiplayer() {
             MULTI.player
         );
 
-    } catch (error) {}
-
+    } catch (error) {
+        console.warn(error);
+    }
 
     leaveLocalRoom();
 
@@ -2686,6 +2581,11 @@ function leaveLocalRoom() {
     MULTI.guestOnline =
         false;
 
+    MULTI.lastRemoteState =
+        null;
+
+    MULTI.syncing =
+        false;
 
     clearInterval(
         MULTI.pollTimer
@@ -2695,6 +2595,11 @@ function leaveLocalRoom() {
         MULTI.pushTimer
     );
 
+    MULTI.pollTimer =
+        null;
+
+    MULTI.pushTimer =
+        null;
 
     updateConnectionUI(
         true
@@ -2704,7 +2609,7 @@ function leaveLocalRoom() {
 
 /* =========================================================
    PANEL
-========================================================= */
+   ========================================================= */
 
 let currentPanel =
     null;
@@ -2718,12 +2623,10 @@ function openPanel(
 
     closePanel();
 
-
     const panel =
         document.createElement(
             "div"
         );
-
 
     Object.assign(
         panel.style,
@@ -2765,44 +2668,35 @@ function openPanel(
         }
     );
 
-
     const heading =
         document.createElement(
             "h2"
         );
 
-
     heading.innerHTML =
         title;
-
 
     heading.style.marginBottom =
         "14px";
 
-
     panel.appendChild(
         heading
     );
-
 
     const contentDiv =
         document.createElement(
             "div"
         );
 
-
     contentDiv.innerHTML =
         content;
-
 
     contentDiv.style.lineHeight =
         "1.7";
 
-
     panel.appendChild(
         contentDiv
     );
-
 
     buttons.forEach(
         data => {
@@ -2812,24 +2706,19 @@ function openPanel(
                     "button"
                 );
 
-
             button.textContent =
                 data.text;
-
 
             button.style.width =
                 "100%";
 
-
             button.style.marginTop =
                 "8px";
-
 
             button.addEventListener(
                 "click",
                 data.action
             );
-
 
             panel.appendChild(
                 button
@@ -2837,11 +2726,9 @@ function openPanel(
         }
     );
 
-
     document.body.appendChild(
         panel
     );
-
 
     currentPanel =
         panel;
@@ -2864,7 +2751,7 @@ function closePanel() {
 
 /* =========================================================
    TOWER MENU
-========================================================= */
+   ========================================================= */
 
 function towerMenu() {
 
@@ -2888,30 +2775,33 @@ function towerMenu() {
                 text:
                     "🏹 ARCHER",
 
-                action: () =>
-                    selectTower(
-                        "archer"
-                    )
+                action:
+                    () =>
+                        selectTower(
+                            "archer"
+                        )
             },
 
             {
                 text:
                     "💣 CANNON",
 
-                action: () =>
-                    selectTower(
-                        "cannon"
-                    )
+                action:
+                    () =>
+                        selectTower(
+                            "cannon"
+                        )
             },
 
             {
                 text:
                     "🔮 MAGIC",
 
-                action: () =>
-                    selectTower(
-                        "magic"
-                    )
+                action:
+                    () =>
+                        selectTower(
+                            "magic"
+                        )
             },
 
             {
@@ -2939,7 +2829,6 @@ function selectTower(
 
     closePanel();
 
-
     message(
         "🖱️ Click the map to place your tower."
     );
@@ -2948,11 +2837,10 @@ function selectTower(
 
 /* =========================================================
    MAP CLICK
-========================================================= */
+   ========================================================= */
 
 const raycaster =
     new THREE.Raycaster();
-
 
 const mouse =
     new THREE.Vector2();
@@ -2965,154 +2853,161 @@ renderer.domElement.addEventListener(
         mouse.x =
             event.clientX /
             innerWidth *
-            2 - 1;
+            2 -
+            1;
 
         mouse.y =
-            -(event.clientY /
+            -(
+                event.clientY /
                 innerHeight *
-                2 - 1);
-
+                2 -
+                1
+            );
 
         raycaster.setFromCamera(
             mouse,
             camera
         );
 
+        if (
+            !GAME.towerMode
+        ) {
+            return;
+        }
+
+        const hits =
+            raycaster
+                .intersectObject(
+                    ground
+                );
 
         if (
-            GAME.towerMode
+            !hits.length
+        ) {
+            return;
+        }
+
+        const position =
+            hits[0].point;
+
+        let blocked =
+            false;
+
+        pathMeshes.forEach(
+            path => {
+
+                const box =
+                    new THREE.Box3()
+                        .setFromObject(
+                            path
+                        );
+
+                if (
+                    box.containsPoint(
+                        position
+                    )
+                ) {
+
+                    blocked =
+                        true;
+                }
+            }
+        );
+
+        if (
+            blocked
         ) {
 
-            const hits =
-                raycaster
-                    .intersectObject(
-                        ground
-                    );
-
-
-            if (
-                !hits.length
-            ) {
-                return;
-            }
-
-
-            const position =
-                hits[0].point;
-
-
-            let blocked =
-                false;
-
-
-            pathMeshes.forEach(
-                path => {
-
-                    const box =
-                        new THREE.Box3()
-                            .setFromObject(
-                                path
-                            );
-
-
-                    if (
-                        box.containsPoint(
-                            position
-                        )
-                    ) {
-
-                        blocked =
-                            true;
-                    }
-                }
+            message(
+                "❌ Can't build on the path!"
             );
-
-
-            if (
-                blocked
-            ) {
-
-                message(
-                    "❌ Can't build on the path!"
-                );
-
-                return;
-            }
-
-
-            const type =
-                GAME.selectedTowerType;
-
-
-            const cost =
-                TOWER_TYPES[
-                    type
-                ].cost;
-
-
-            if (
-                GAME.coins <
-                cost
-            ) {
-
-                message(
-                    "❌ Not enough coins!"
-                );
-
-                return;
-            }
-
-
-            GAME.coins -=
-                cost;
-
-
-            createTower(
-                type,
-                position,
-                MULTI.player
-            );
-
-
-            GAME.towerMode =
-                false;
-
-            GAME.selectedTowerType =
-                null;
-
-
-            updateHUD();
-
-
-            if (
-                MULTI.host
-            ) {
-
-                multiplayerPush();
-            }
-
 
             return;
         }
+
+        const type =
+            GAME.selectedTowerType;
+
+        if (!type) {
+            return;
+        }
+
+        const cost =
+            TOWER_TYPES[
+                type
+            ].cost;
+
+        if (
+            GAME.coins <
+            cost
+        ) {
+
+            message(
+                "❌ Not enough coins!"
+            );
+
+            return;
+        }
+
+        /*
+            Player 2 cannot modify the authoritative
+            host state directly.
+
+            For this V0.7.1 fix, Player 2 can still
+            see the live shared game, but tower placement
+            remains host-controlled.
+
+            This prevents the guest's local tower from
+            being overwritten and creating desync.
+        */
+
+        if (
+            MULTI.connected &&
+            !MULTI.host
+        ) {
+
+            message(
+                "👑 Player 1 places towers in V0.7.1."
+            );
+
+            return;
+        }
+
+        GAME.coins -=
+            cost;
+
+        createTower(
+            type,
+            position,
+            MULTI.player
+        );
+
+        GAME.towerMode =
+            false;
+
+        GAME.selectedTowerType =
+            null;
+
+        updateHUD();
+
+        multiplayerPush();
     }
 );
 
 
 /* =========================================================
    BUTTONS
-========================================================= */
+   ========================================================= */
 
 startWaveButton.addEventListener(
     "click",
     startWave
 );
 
-
 towerButton.addEventListener(
     "click",
     towerMenu
 );
-
 
 multiplayerButton.addEventListener(
     "click",
@@ -3122,7 +3017,7 @@ multiplayerButton.addEventListener(
 
 /* =========================================================
    RESIZE
-========================================================= */
+   ========================================================= */
 
 window.addEventListener(
     "resize",
@@ -3138,14 +3033,13 @@ window.addEventListener(
             innerWidth,
             innerHeight
         );
-
     }
 );
 
 
 /* =========================================================
    GAME LOOP
-========================================================= */
+   ========================================================= */
 
 let lastTime =
     performance.now();
@@ -3157,24 +3051,34 @@ function animate(now) {
         animate
     );
 
-
     const delta =
         Math.min(
-            .05,
+            0.05,
             (now - lastTime) /
             1000
         );
 
-
     lastTime =
         now;
 
-
     /*
-       HOST SIMULATES THE GAME.
+        =====================================================
+        IMPORTANT V0.7.1 MULTIPLAYER FIX
+        =====================================================
 
-       GUEST mainly receives
-       the host's state.
+        HOST:
+            Runs the real game simulation.
+
+        PLAYER 2:
+            Does NOT run a second simulation.
+
+            Instead:
+              - multiplayerPoll() receives host state
+              - applyRemoteState() updates the scene
+              - this animation loop CONTINUES rendering
+
+        The old V0.7 code had an empty guest branch,
+        which made Player 2 appear completely frozen.
     */
 
     if (
@@ -3188,9 +3092,10 @@ function animate(now) {
         ) {
 
             /*
-               Guest doesn't run
-               the authoritative
-               simulation.
+                Guest intentionally does not simulate
+                authoritative gameplay.
+
+                Rendering continues below.
             */
 
         } else {
@@ -3210,10 +3115,8 @@ function animate(now) {
             updateProjectiles(
                 delta
             );
-
         }
     }
-
 
     renderer.render(
         scene,
@@ -3224,7 +3127,7 @@ function animate(now) {
 
 /* =========================================================
    START
-========================================================= */
+   ========================================================= */
 
 updateHUD();
 
