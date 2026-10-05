@@ -22,7 +22,7 @@
 */
 
 const SERVER_URL =
-    "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    "https://script.google.com/macros/s/AKfycbzOzf7OKknOGAR_A--H0AVi1a1Rzt2OHQO5oVzYkeTKMATzqbhhoRPMMNLV4INxhvk6Eg/exec";
 
 
 /* =========================================================
