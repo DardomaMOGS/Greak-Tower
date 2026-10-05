@@ -1,18 +1,38 @@
 "use strict";
 
 /* =========================================================
-   GREAK TOWER V0.6
-   POLISH + STRATEGY UPDATE
+   GREAK TOWER V0.7
+   MULTIPLAYER UPDATE
 ========================================================= */
 
 
 /* =========================================================
-   GAME STATE
+   GOOGLE APPS SCRIPT URL
+========================================================= */
+
+/*
+   AFTER DEPLOYING Code.gs:
+
+   Paste your Google Apps Script Web App URL here.
+
+   Example:
+
+   const SERVER_URL =
+       "https://script.google.com/macros/s/XXXXX/exec";
+*/
+
+const SERVER_URL =
+    "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
+
+/* =========================================================
+   GAME
 ========================================================= */
 
 const GAME = {
 
     coins: 100,
+
     baseHealth: 100,
 
     wave: 1,
@@ -20,34 +40,63 @@ const GAME = {
     xp: 0,
 
     waveRunning: false,
+
     gameOver: false,
+
     victory: false,
 
     maxVictoryWave: 15,
 
     spawnQueue: [],
+
     spawnIndex: 0,
+
     spawnTimer: 0,
 
     waveKills: 0,
+
     totalKills: 0,
 
-    selectedTower: null,
-    selectedTowerType: null,
-
     towers: [],
+
     enemies: [],
+
     projectiles: [],
+
     effects: [],
 
-    towerMode: false,
+    selectedTower: null,
 
-    targetModes: [
-        "First",
-        "Last",
-        "Strongest",
-        "Closest"
-    ]
+    selectedTowerType: null,
+
+    towerMode: false
+
+};
+
+
+/* =========================================================
+   MULTIPLAYER
+========================================================= */
+
+const MULTI = {
+
+    connected: false,
+
+    room: null,
+
+    player: null,
+
+    host: false,
+
+    guestOnline: false,
+
+    pollTimer: null,
+
+    pushTimer: null,
+
+    lastRemoteState: null,
+
+    syncing: false
 
 };
 
@@ -56,51 +105,84 @@ const GAME = {
    DOM
 ========================================================= */
 
-const $ = id => document.getElementById(id);
+const $ = id =>
+    document.getElementById(id);
 
-const coinsEl = $("coins");
-const healthEl = $("baseHealth");
-const waveEl = $("wave");
-const xpEl = $("xp");
+const coinsEl =
+    $("coins");
 
-const startWaveButton = $("startWave");
-const towerButton = $("towerButton");
-const achievementsButton = $("achievementsButton");
-const messageEl = $("message");
+const healthEl =
+    $("baseHealth");
+
+const waveEl =
+    $("wave");
+
+const xpEl =
+    $("xp");
+
+const startWaveButton =
+    $("startWave");
+
+const towerButton =
+    $("towerButton");
+
+const multiplayerButton =
+    $("multiplayerButton");
+
+const connectionDot =
+    $("connectionDot");
+
+const connectionText =
+    $("connectionText");
+
+const messageEl =
+    $("message");
 
 
 /* =========================================================
-   THREE.JS
+   THREE
 ========================================================= */
 
-const scene = new THREE.Scene();
+const scene =
+    new THREE.Scene();
 
-scene.background = new THREE.Color(0x87ceeb);
+scene.background =
+    new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(
-    55,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    200
+
+const camera =
+    new THREE.PerspectiveCamera(
+        55,
+        innerWidth / innerHeight,
+        .1,
+        200
+    );
+
+camera.position.set(
+    0,
+    28,
+    27
 );
 
-camera.position.set(0, 28, 27);
-camera.lookAt(0, 0, 0);
+camera.lookAt(
+    0,
+    0,
+    0
+);
 
 
-const renderer = new THREE.WebGLRenderer({
-    antialias: true
-});
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias: true
+    });
 
 renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
+    innerWidth,
+    innerHeight
 );
 
-renderer.shadowMap.enabled = true;
-
-renderer.shadowMap.type =
-    THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled =
+    true;
 
 document
     .getElementById("game")
@@ -108,22 +190,23 @@ document
 
 
 /* =========================================================
-   LIGHTING
+   LIGHTS
 ========================================================= */
 
-const ambientLight = new THREE.HemisphereLight(
-    0xffffff,
-    0x557755,
-    1.5
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x557755,
+        1.5
+    )
 );
 
-scene.add(ambientLight);
 
-
-const sun = new THREE.DirectionalLight(
-    0xffffff,
-    1.7
-);
+const sun =
+    new THREE.DirectionalLight(
+        0xffffff,
+        1.7
+    );
 
 sun.position.set(
     -15,
@@ -137,23 +220,29 @@ scene.add(sun);
 
 
 /* =========================================================
-   WORLD
+   GROUND
 ========================================================= */
 
-const ground = new THREE.Mesh(
-    new THREE.BoxGeometry(
-        34,
-        1,
-        26
-    ),
-    new THREE.MeshLambertMaterial({
-        color: 0x49a942
-    })
-);
+const ground =
+    new THREE.Mesh(
 
-ground.position.y = -0.5;
+        new THREE.BoxGeometry(
+            34,
+            1,
+            26
+        ),
 
-ground.receiveShadow = true;
+        new THREE.MeshLambertMaterial({
+            color: 0x49a942
+        })
+
+    );
+
+ground.position.y =
+    -.5;
+
+ground.receiveShadow =
+    true;
 
 scene.add(ground);
 
@@ -164,14 +253,37 @@ scene.add(ground);
 
 const pathPoints = [
 
-    new THREE.Vector3(-15, 0, -9),
-    new THREE.Vector3(-8, 0, -9),
-    new THREE.Vector3(-8, 0, 5),
-    new THREE.Vector3(2, 0, 5),
-    new THREE.Vector3(2, 0, -5),
-    new THREE.Vector3(10, 0, -5),
-    new THREE.Vector3(10, 0, 9),
-    new THREE.Vector3(15, 0, 9)
+    new THREE.Vector3(
+        -15, 0, -9
+    ),
+
+    new THREE.Vector3(
+        -8, 0, -9
+    ),
+
+    new THREE.Vector3(
+        -8, 0, 5
+    ),
+
+    new THREE.Vector3(
+        2, 0, 5
+    ),
+
+    new THREE.Vector3(
+        2, 0, -5
+    ),
+
+    new THREE.Vector3(
+        10, 0, -5
+    ),
+
+    new THREE.Vector3(
+        10, 0, 9
+    ),
+
+    new THREE.Vector3(
+        15, 0, 9
+    )
 
 ];
 
@@ -179,31 +291,49 @@ const pathPoints = [
 const pathMeshes = [];
 
 
-function createPath() {
+for (
+    let i = 0;
+    i < pathPoints.length - 1;
+    i++
+) {
 
-    for (let i = 0; i < pathPoints.length - 1; i++) {
+    const a =
+        pathPoints[i];
 
-        const a = pathPoints[i];
-        const b = pathPoints[i + 1];
+    const b =
+        pathPoints[i + 1];
 
-        const dx = b.x - a.x;
-        const dz = b.z - a.z;
 
-        const length =
-            Math.sqrt(dx * dx + dz * dz);
+    const horizontal =
+        Math.abs(
+            b.x - a.x
+        ) >
+        Math.abs(
+            b.z - a.z
+        );
 
-        const mesh = new THREE.Mesh(
+
+    const length =
+        horizontal
+            ? Math.abs(b.x - a.x)
+            : Math.abs(b.z - a.z);
+
+
+    const mesh =
+        new THREE.Mesh(
 
             new THREE.BoxGeometry(
-                Math.abs(dx) > Math.abs(dz)
+
+                horizontal
                     ? length
                     : 3.5,
 
                 .15,
 
-                Math.abs(dz) > Math.abs(dx)
-                    ? length
-                    : 3.5
+                horizontal
+                    ? 3.5
+                    : length
+
             ),
 
             new THREE.MeshLambertMaterial({
@@ -212,124 +342,172 @@ function createPath() {
 
         );
 
-        mesh.position.set(
-            (a.x + b.x) / 2,
-            0.05,
-            (a.z + b.z) / 2
-        );
 
-        mesh.receiveShadow = true;
+    mesh.position.set(
 
-        scene.add(mesh);
+        (a.x + b.x) / 2,
 
-        pathMeshes.push(mesh);
-    }
+        .05,
+
+        (a.z + b.z) / 2
+
+    );
+
+
+    scene.add(mesh);
+
+    pathMeshes.push(mesh);
 }
-
-createPath();
 
 
 /* =========================================================
-   DECORATION
+   TREES
 ========================================================= */
 
 function createTree(x, z) {
 
-    const group = new THREE.Group();
+    const group =
+        new THREE.Group();
 
-    const trunk = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 2.8, 0.7),
-        new THREE.MeshLambertMaterial({
-            color: 0x6d4528
-        })
-    );
 
-    trunk.position.y = 1.4;
+    const trunk =
+        new THREE.Mesh(
 
-    trunk.castShadow = true;
+            new THREE.BoxGeometry(
+                .7,
+                2.8,
+                .7
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color: 0x6d4528
+            })
+
+        );
+
+    trunk.position.y =
+        1.4;
+
+    trunk.castShadow =
+        true;
 
     group.add(trunk);
 
 
-    const leaves = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(1.6),
-        new THREE.MeshLambertMaterial({
-            color: 0x187d32
-        })
-    );
+    const leaves =
+        new THREE.Mesh(
 
-    leaves.position.y = 3.2;
+            new THREE.DodecahedronGeometry(
+                1.6
+            ),
 
-    leaves.castShadow = true;
+            new THREE.MeshLambertMaterial({
+                color: 0x187d32
+            })
+
+        );
+
+    leaves.position.y =
+        3.2;
+
+    leaves.castShadow =
+        true;
 
     group.add(leaves);
 
 
-    group.position.set(x, 0, z);
+    group.position.set(
+        x,
+        0,
+        z
+    );
 
     scene.add(group);
 }
 
 
 [
-    [-14, 5],
-    [-14, -4],
-    [-4, -4],
-    [-4, 9],
-    [6, 9],
-    [7, 2],
-    [13, 3],
-    [13, -9],
-    [0, -9]
-].forEach(p => createTree(p[0], p[1]));
+    [-14,5],
+    [-14,-4],
+    [-4,-4],
+    [-4,9],
+    [6,9],
+    [7,2],
+    [13,3],
+    [13,-9],
+    [0,-9]
+].forEach(p =>
+    createTree(
+        p[0],
+        p[1]
+    )
+);
 
 
 /* =========================================================
    BASE
 ========================================================= */
 
-const base = new THREE.Group();
+const base =
+    new THREE.Group();
 
-const baseBody = new THREE.Mesh(
-    new THREE.BoxGeometry(3, 3, 3),
-    new THREE.MeshLambertMaterial({
-        color: 0x7030a0
-    })
-);
 
-baseBody.position.y = 1.5;
+const baseBody =
+    new THREE.Mesh(
 
-baseBody.castShadow = true;
+        new THREE.BoxGeometry(
+            3,
+            3,
+            3
+        ),
+
+        new THREE.MeshLambertMaterial({
+            color: 0x7030a0
+        })
+
+    );
+
+baseBody.position.y =
+    1.5;
 
 base.add(baseBody);
 
 
-const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(
-        2.2,
-        2,
-        4
-    ),
-    new THREE.MeshLambertMaterial({
-        color: 0xff8c00
-    })
-);
+const roof =
+    new THREE.Mesh(
 
-roof.position.y = 4;
+        new THREE.ConeGeometry(
+            2.2,
+            2,
+            4
+        ),
 
-roof.rotation.y = Math.PI / 4;
+        new THREE.MeshLambertMaterial({
+            color: 0xff8c00
+        })
 
-roof.castShadow = true;
+    );
+
+roof.position.y =
+    4;
+
+roof.rotation.y =
+    Math.PI / 4;
 
 base.add(roof);
 
-base.position.set(15, 0, 9);
+
+base.position.set(
+    15,
+    0,
+    9
+);
 
 scene.add(base);
 
 
 /* =========================================================
-   TOWER DATA
+   TOWER TYPES
 ========================================================= */
 
 const TOWER_TYPES = {
@@ -346,13 +524,9 @@ const TOWER_TYPES = {
 
         fireRate: .45,
 
-        projectileSpeed: 15,
+        speed: 15,
 
-        color: 0x1976d2,
-
-        ability: "Rapid Fire",
-
-        cooldown: 15
+        color: 0x1976d2
 
     },
 
@@ -368,13 +542,9 @@ const TOWER_TYPES = {
 
         fireRate: 1.5,
 
-        projectileSpeed: 9,
+        speed: 9,
 
-        color: 0x444444,
-
-        ability: "Big Blast",
-
-        cooldown: 20
+        color: 0x444444
 
     },
 
@@ -390,13 +560,9 @@ const TOWER_TYPES = {
 
         fireRate: .8,
 
-        projectileSpeed: 13,
+        speed: 13,
 
-        color: 0x9c27b0,
-
-        ability: "Lightning",
-
-        cooldown: 18
+        color: 0x9c27b0
 
     }
 
@@ -404,14 +570,12 @@ const TOWER_TYPES = {
 
 
 /* =========================================================
-   ENEMY DATA
+   ENEMIES
 ========================================================= */
 
 const ENEMY_TYPES = {
 
     basic: {
-
-        name: "Basic",
 
         health: 100,
 
@@ -421,16 +585,13 @@ const ENEMY_TYPES = {
 
         scale: 1,
 
-        body: 0xe53935,
-        head: 0xff7043,
+        color: 0xe53935,
 
         armor: 0
 
     },
 
     fast: {
-
-        name: "Fast",
 
         health: 60,
 
@@ -440,16 +601,13 @@ const ENEMY_TYPES = {
 
         scale: .82,
 
-        body: 0x00a86b,
-        head: 0x00e676,
+        color: 0x00a86b,
 
         armor: 0
 
     },
 
     tank: {
-
-        name: "Tank",
 
         health: 300,
 
@@ -459,16 +617,13 @@ const ENEMY_TYPES = {
 
         scale: 1.35,
 
-        body: 0x4a148c,
-        head: 0x7b1fa2,
+        color: 0x4a148c,
 
         armor: .15
 
     },
 
     boss: {
-
-        name: "Boss",
 
         health: 1000,
 
@@ -478,8 +633,7 @@ const ENEMY_TYPES = {
 
         scale: 1.8,
 
-        body: 0x7f0000,
-        head: 0xd32f2f,
+        color: 0x7f0000,
 
         armor: .25
 
@@ -489,191 +643,70 @@ const ENEMY_TYPES = {
 
 
 /* =========================================================
-   HEALTH BAR
-========================================================= */
-
-function createHealthBar(enemy) {
-
-    const group = new THREE.Group();
-
-    const bg = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.5, .18),
-        new THREE.MeshBasicMaterial({
-            color: 0x222222,
-            side: THREE.DoubleSide
-        })
-    );
-
-    group.add(bg);
-
-
-    const fill = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.4, .12),
-        new THREE.MeshBasicMaterial({
-            color: 0x25d94f,
-            side: THREE.DoubleSide
-        })
-    );
-
-    fill.position.z = .01;
-
-    group.add(fill);
-
-    group.position.y = 3;
-
-    enemy.group.add(group);
-
-    enemy.healthBar = group;
-    enemy.healthFill = fill;
-}
-
-
-/* =========================================================
-   ENEMY CREATION
+   ENEMY
 ========================================================= */
 
 function createEnemy(type) {
 
-    const data = ENEMY_TYPES[type];
+    const data =
+        ENEMY_TYPES[type];
 
-    const group = new THREE.Group();
 
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1,
-            1.6,
-            1
-        ),
-        new THREE.MeshLambertMaterial({
-            color: data.body
-        })
-    );
+    const group =
+        new THREE.Group();
 
-    body.position.y = 1.1;
 
-    body.castShadow = true;
+    const body =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                1,
+                1.6,
+                1
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color: data.color
+            })
+
+        );
+
+    body.position.y =
+        1.1;
 
     group.add(body);
 
 
-    const head = new THREE.Mesh(
-        new THREE.SphereGeometry(
-            .55,
-            12,
-            12
-        ),
-        new THREE.MeshLambertMaterial({
-            color: data.head
-        })
-    );
+    const head =
+        new THREE.Mesh(
 
-    head.position.y = 2.35;
+            new THREE.SphereGeometry(
+                .55,
+                12,
+                12
+            ),
 
-    head.castShadow = true;
+            new THREE.MeshLambertMaterial({
+                color: data.color
+            })
+
+        );
+
+    head.position.y =
+        2.35;
 
     group.add(head);
 
 
-    const eyeMaterial =
-        new THREE.MeshBasicMaterial({
-            color: 0xffffff
-        });
-
-
-    const eye1 = new THREE.Mesh(
-        new THREE.BoxGeometry(.13,.13,.13),
-        eyeMaterial
+    group.scale.setScalar(
+        data.scale
     );
 
-    const eye2 = eye1.clone();
 
-    eye1.position.set(-.2, 2.4, -.5);
-    eye2.position.set(.2, 2.4, -.5);
-
-    group.add(eye1);
-    group.add(eye2);
-
-
-    const armGeometry =
-        new THREE.BoxGeometry(.25, 1.1, .25);
-
-    const armMaterial =
-        new THREE.MeshLambertMaterial({
-            color: data.body
-        });
-
-
-    const arm1 = new THREE.Mesh(
-        armGeometry,
-        armMaterial
+    group.position.copy(
+        pathPoints[0]
     );
 
-    const arm2 = arm1.clone();
-
-    arm1.position.set(-.7, 1.1, 0);
-    arm2.position.set(.7, 1.1, 0);
-
-    group.add(arm1);
-    group.add(arm2);
-
-
-    const legGeometry =
-        new THREE.BoxGeometry(.3, .8, .3);
-
-
-    const leg1 = new THREE.Mesh(
-        legGeometry,
-        armMaterial
-    );
-
-    const leg2 = leg1.clone();
-
-    leg1.position.set(-.25, .1, 0);
-    leg2.position.set(.25, .1, 0);
-
-    group.add(leg1);
-    group.add(leg2);
-
-
-    if (type === "tank") {
-
-        const armor = new THREE.Mesh(
-            new THREE.BoxGeometry(1.45, 1.9, 1.45),
-            new THREE.MeshLambertMaterial({
-                color: 0x777777,
-                transparent: true,
-                opacity: .35
-            })
-        );
-
-        armor.position.y = 1.2;
-
-        group.add(armor);
-    }
-
-
-    if (type === "boss") {
-
-        const crown = new THREE.Mesh(
-            new THREE.ConeGeometry(
-                .9,
-                1.2,
-                5
-            ),
-            new THREE.MeshLambertMaterial({
-                color: 0xffd700
-            })
-        );
-
-        crown.position.y = 3.5;
-
-        group.add(crown);
-    }
-
-
-    group.scale.setScalar(data.scale);
-
-    group.position.copy(pathPoints[0]);
 
     scene.add(group);
 
@@ -692,71 +725,65 @@ function createEnemy(type) {
 
         reward: data.reward,
 
-        pathIndex: 0,
-
-        distanceTravelled: 0,
-
         armor: data.armor,
 
-        bossTimer: 5,
-
-        speedBoostTimer: 0,
-
-        healthBar: null,
-        healthFill: null
+        pathIndex: 0
 
     };
 
 
-    createHealthBar(enemy);
-
-    GAME.enemies.push(enemy);
-
-    if (type === "boss") {
-        showBossWarning();
-    }
+    GAME.enemies.push(
+        enemy
+    );
 }
 
 
 /* =========================================================
-   BOSS WARNING
-========================================================= */
-
-function showBossWarning() {
-
-    message("⚠️ BOSS INCOMING!", 2500);
-
-    playSound(90, .35, "sawtooth");
-}
-
-
-/* =========================================================
-   WAVE BUILDING
+   WAVE
 ========================================================= */
 
 function buildWave(wave) {
 
     const queue = [];
 
-    const amount = 4 + wave * 2;
+    const amount =
+        4 + wave * 2;
 
-    for (let i = 0; i < amount; i++) {
 
-        let type = "basic";
+    for (
+        let i = 0;
+        i < amount;
+        i++
+    ) {
 
-        if (wave >= 2 && i % 4 === 0) {
+        let type =
+            "basic";
+
+
+        if (
+            wave >= 2 &&
+            i % 4 === 0
+        ) {
             type = "fast";
         }
 
-        if (wave >= 3 && i % 6 === 0) {
+
+        if (
+            wave >= 3 &&
+            i % 6 === 0
+        ) {
             type = "tank";
         }
+
 
         queue.push(type);
     }
 
 
-    if (wave % 5 === 0) {
+    if (
+        wave % 5 === 0
+    ) {
+
         queue.push("boss");
     }
 
@@ -771,104 +798,69 @@ function buildWave(wave) {
 
 function startWave() {
 
-    if (GAME.gameOver || GAME.victory) return;
+    if (
+        GAME.waveRunning ||
+        GAME.gameOver ||
+        GAME.victory
+    ) {
+        return;
+    }
 
-    if (GAME.waveRunning) return;
 
-    GAME.spawnQueue = buildWave(GAME.wave);
+    GAME.spawnQueue =
+        buildWave(
+            GAME.wave
+        );
 
-    GAME.spawnIndex = 0;
 
-    GAME.spawnTimer = 0;
+    GAME.spawnIndex =
+        0;
 
-    GAME.waveKills = 0;
+    GAME.spawnTimer =
+        0;
 
-    GAME.waveRunning = true;
+    GAME.waveKills =
+        0;
 
-    startWaveButton.disabled = true;
+    GAME.waveRunning =
+        true;
 
-    startWaveButton.style.opacity = ".5";
+
+    startWaveButton.disabled =
+        true;
+
 
     message(
         `🌊 Wave ${GAME.wave} started!`
     );
 
-    playSound(330, .12, "square");
+
+    multiplayerPush();
 }
 
 
 /* =========================================================
-   WAVE PREVIEW
-========================================================= */
-
-function wavePreview() {
-
-    if (GAME.waveRunning) return;
-
-    const queue = buildWave(GAME.wave);
-
-    const counts = {};
-
-    queue.forEach(type => {
-
-        counts[type] =
-            (counts[type] || 0) + 1;
-
-    });
-
-
-    let text =
-        `<b>WAVE ${GAME.wave}</b><br><br>`;
-
-    Object.keys(counts).forEach(type => {
-
-        text +=
-            `${ENEMY_TYPES[type].name}: ${counts[type]}<br>`;
-
-    });
-
-
-    text +=
-        `<br>Difficulty: ${
-            GAME.wave < 5
-                ? "Easy"
-                : GAME.wave < 10
-                    ? "Medium"
-                    : "Hard"
-        }`;
-
-
-    openPanel(
-        "🌊 WAVE PREVIEW",
-        text,
-        [
-            {
-                text: "START WAVE",
-                action: startWave
-            },
-            {
-                text: "CLOSE",
-                action: closePanel
-            }
-        ]
-    );
-}
-
-
-/* =========================================================
-   SPAWNING
+   SPAWN
 ========================================================= */
 
 function updateSpawning(delta) {
 
-    if (!GAME.waveRunning) return;
+    if (
+        !GAME.waveRunning
+    ) {
+        return;
+    }
+
 
     if (
         GAME.spawnIndex >=
         GAME.spawnQueue.length
     ) {
 
-        if (GAME.enemies.length === 0) {
+        if (
+            GAME.enemies.length === 0
+        ) {
+
             finishWave();
         }
 
@@ -876,18 +868,25 @@ function updateSpawning(delta) {
     }
 
 
-    GAME.spawnTimer -= delta;
+    GAME.spawnTimer -=
+        delta;
 
-    if (GAME.spawnTimer <= 0) {
 
-        const type =
-            GAME.spawnQueue[GAME.spawnIndex];
+    if (
+        GAME.spawnTimer <= 0
+    ) {
 
-        createEnemy(type);
+        createEnemy(
+            GAME.spawnQueue[
+                GAME.spawnIndex
+            ]
+        );
+
 
         GAME.spawnIndex++;
 
-        GAME.spawnTimer = .8;
+        GAME.spawnTimer =
+            .8;
     }
 }
 
@@ -899,63 +898,20 @@ function updateSpawning(delta) {
 function updateEnemies(delta) {
 
     for (
-        let i = GAME.enemies.length - 1;
+        let i =
+            GAME.enemies.length - 1;
         i >= 0;
         i--
     ) {
 
-        const enemy = GAME.enemies[i];
-
-        let speed = enemy.speed;
-
-
-        /* FAST ENEMY SPECIAL */
-        if (enemy.type === "fast") {
-
-            enemy.speedBoostTimer -= delta;
-
-            if (enemy.speedBoostTimer <= 0) {
-
-                enemy.speedBoostTimer = 5;
-
-                if (Math.random() < .35) {
-
-                    enemy.speedBoostTimer = 1.2;
-
-                    enemy.speedBoostActive = true;
-                }
-            }
-
-            if (enemy.speedBoostActive) {
-
-                speed *= 1.7;
-
-                enemy.speedBoostTimer -= delta;
-
-                if (enemy.speedBoostTimer <= 0) {
-                    enemy.speedBoostActive = false;
-                    enemy.speedBoostTimer = 5;
-                }
-            }
-        }
-
-
-        /* BOSS SPECIAL */
-        if (enemy.type === "boss") {
-
-            enemy.bossTimer -= delta;
-
-            if (enemy.bossTimer <= 0) {
-
-                enemy.bossTimer = 7;
-
-                bossAbility(enemy);
-            }
-        }
+        const enemy =
+            GAME.enemies[i];
 
 
         const target =
-            pathPoints[enemy.pathIndex + 1];
+            pathPoints[
+                enemy.pathIndex + 1
+            ];
 
 
         if (!target) {
@@ -968,98 +924,44 @@ function updateEnemies(delta) {
 
         const direction =
             target.clone()
-                .sub(enemy.group.position)
+                .sub(
+                    enemy.group.position
+                )
                 .normalize();
 
 
-        enemy.group.position.addScaledVector(
-            direction,
-            speed * delta
-        );
-
-
-        enemy.distanceTravelled +=
-            speed * delta;
+        enemy.group
+            .position
+            .addScaledVector(
+                direction,
+                enemy.speed *
+                delta
+            );
 
 
         if (
-            enemy.group.position.distanceTo(target)
-            < .35
+            enemy.group.position
+                .distanceTo(target)
+                < .35
         ) {
 
             enemy.pathIndex++;
-        }
-
-
-        if (enemy.healthBar) {
-
-            enemy.healthBar.lookAt(
-                camera.position
-            );
-
-            const ratio =
-                Math.max(
-                    0,
-                    enemy.health /
-                    enemy.maxHealth
-                );
-
-            enemy.healthFill.scale.x =
-                ratio;
-
-            enemy.healthFill.position.x =
-                -(1.4 * (1 - ratio)) / 2;
         }
     }
 }
 
 
 /* =========================================================
-   BOSS ABILITY
-========================================================= */
-
-function bossAbility(boss) {
-
-    message("👑 BOSS ROAR!");
-
-    playSound(70, .45, "sawtooth");
-
-
-    GAME.towers.forEach(tower => {
-
-        const distance =
-            tower.mesh.position.distanceTo(
-                boss.group.position
-            );
-
-        if (distance < 8) {
-
-            tower.stunned =
-                2.5;
-        }
-    });
-
-
-    createExplosion(
-        boss.group.position.clone(),
-        0xff2200,
-        2.5
-    );
-}
-
-
-/* =========================================================
-   REACH BASE
+   BASE
 ========================================================= */
 
 function reachBase(enemy) {
 
-    const damage =
+    GAME.baseHealth -=
         enemy.type === "boss"
             ? 20
             : 10;
 
-    GAME.baseHealth -= damage;
 
     GAME.baseHealth =
         Math.max(
@@ -1067,18 +969,17 @@ function reachBase(enemy) {
             GAME.baseHealth
         );
 
-    updateHUD();
-
-    createExplosion(
-        enemy.group.position.clone(),
-        0xff3333,
-        1.2
-    );
 
     removeEnemy(enemy);
 
-    if (GAME.baseHealth <= 0) {
-        gameOver();
+    updateHUD();
+
+
+    if (
+        GAME.baseHealth <= 0
+    ) {
+
+        endGame();
     }
 }
 
@@ -1090,144 +991,35 @@ function reachBase(enemy) {
 function removeEnemy(enemy) {
 
     const index =
-        GAME.enemies.indexOf(enemy);
+        GAME.enemies.indexOf(
+            enemy
+        );
+
 
     if (index !== -1) {
-        GAME.enemies.splice(index, 1);
+
+        GAME.enemies.splice(
+            index,
+            1
+        );
     }
 
-    scene.remove(enemy.group);
+
+    scene.remove(
+        enemy.group
+    );
 }
 
 
 /* =========================================================
-   DAMAGE ENEMY
+   TOWER
 ========================================================= */
 
-function damageEnemy(enemy, amount, towerType) {
-
-    if (!GAME.enemies.includes(enemy)) {
-        return;
-    }
-
-
-    const data =
-        ENEMY_TYPES[enemy.type];
-
-
-    /* TYPE BONUSES */
-
-    if (
-        towerType === "archer" &&
-        enemy.type === "fast"
-    ) {
-        amount *= 1.25;
-    }
-
-
-    if (
-        towerType === "cannon" &&
-        enemy.type === "tank"
-    ) {
-        amount *= 1.35;
-    }
-
-
-    if (
-        towerType === "magic" &&
-        enemy.type === "boss"
-    ) {
-        amount *= 1.15;
-    }
-
-
-    /* ARMOR */
-
-    amount *=
-        1 - enemy.armor;
-
-
-    enemy.health -= amount;
-
-
-    createDamageNumber(
-        enemy.group.position.clone(),
-        Math.round(amount)
-    );
-
-
-    createHitEffect(
-        enemy.group.position.clone()
-    );
-
-
-    if (enemy.health <= 0) {
-
-        killEnemy(enemy, towerType);
-    }
-}
-
-
-/* =========================================================
-   KILL ENEMY
-========================================================= */
-
-function killEnemy(enemy, towerType) {
-
-    if (!GAME.enemies.includes(enemy)) {
-        return;
-    }
-
-
-    GAME.coins += enemy.reward;
-
-    GAME.xp +=
-        enemy.type === "boss"
-            ? 100
-            : enemy.type === "tank"
-                ? 30
-                : 10;
-
-
-    GAME.waveKills++;
-
-    GAME.totalKills++;
-
-
-    checkAchievements(enemy);
-
-
-    createExplosion(
-        enemy.group.position.clone(),
-        enemy.type === "boss"
-            ? 0xffaa00
-            : 0xffffff,
-        enemy.type === "boss"
-            ? 3
-            : 1
-    );
-
-
-    playSound(
-        enemy.type === "boss"
-            ? 120
-            : 500,
-        .08,
-        "square"
-    );
-
-
-    removeEnemy(enemy);
-
-    updateHUD();
-}
-
-
-/* =========================================================
-   TOWER CREATION
-========================================================= */
-
-function createTower(type, position) {
+function createTower(
+    type,
+    position,
+    owner = MULTI.player
+) {
 
     const data =
         TOWER_TYPES[type];
@@ -1237,70 +1029,95 @@ function createTower(type, position) {
         new THREE.Group();
 
 
-    const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            .9,
-            1.1,
-            1.4,
-            8
-        ),
-        new THREE.MeshLambertMaterial({
-            color: data.color
-        })
-    );
+    const body =
+        new THREE.Mesh(
 
-    body.position.y = .7;
+            new THREE.CylinderGeometry(
+                .9,
+                1.1,
+                1.4,
+                8
+            ),
 
-    body.castShadow = true;
+            new THREE.MeshLambertMaterial({
+                color: data.color
+            })
+
+        );
+
+    body.position.y =
+        .7;
 
     group.add(body);
 
 
-    const turret = new THREE.Group();
+    const turret =
+        new THREE.Group();
 
-    turret.position.y = 1.25;
+    turret.position.y =
+        1.25;
 
     group.add(turret);
 
 
-    const head = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            1.1,
-            .7,
-            1.1
-        ),
-        new THREE.MeshLambertMaterial({
-            color: data.color
-        })
-    );
+    const head =
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                1.1,
+                .7,
+                1.1
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color: data.color
+            })
+
+        );
 
     turret.add(head);
 
 
-    const barrel = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            .25,
-            .25,
-            1.6
-        ),
-        new THREE.MeshLambertMaterial({
-            color: 0x222222
-        })
-    );
+    const barrel =
+        new THREE.Mesh(
 
-    barrel.position.z = -.8;
+            new THREE.BoxGeometry(
+                .25,
+                .25,
+                1.6
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color: 0x222222
+            })
+
+        );
+
+    barrel.position.z =
+        -.8;
 
     turret.add(barrel);
 
 
-    group.position.copy(position);
+    group.position.copy(
+        position
+    );
+
 
     scene.add(group);
 
 
     const tower = {
 
+        id:
+            "tower_" +
+            Date.now() +
+            "_" +
+            Math.random(),
+
         type,
+
+        owner,
 
         mesh: group,
 
@@ -1310,216 +1127,225 @@ function createTower(type, position) {
 
         cooldown: 0,
 
-        abilityCooldown: 0,
-
         targetMode: "First",
 
-        spent: data.cost,
-
-        stunned: 0
+        spent: data.cost
 
     };
 
 
-    GAME.towers.push(tower);
+    GAME.towers.push(
+        tower
+    );
+
 
     return tower;
 }
 
 
 /* =========================================================
-   TARGETING
+   TARGET
 ========================================================= */
 
 function getTarget(tower) {
 
     const data =
-        TOWER_TYPES[tower.type];
+        TOWER_TYPES[
+            tower.type
+        ];
 
 
-    const available =
-        GAME.enemies.filter(enemy => {
+    const enemies =
+        GAME.enemies.filter(
+            enemy =>
 
-            return enemy.group.position
-                .distanceTo(tower.mesh.position)
-                <= data.range;
+                enemy.group
+                    .position
+                    .distanceTo(
+                        tower.mesh.position
+                    )
+                <= data.range
+        );
 
-        });
 
-
-    if (!available.length) {
+    if (
+        enemies.length === 0
+    ) {
         return null;
     }
 
 
-    switch (tower.targetMode) {
+    if (
+        tower.targetMode ===
+        "Strongest"
+    ) {
 
-        case "First":
-
-            return available.reduce(
-                (best, enemy) =>
-                    enemy.pathIndex >
-                    best.pathIndex
-                        ? enemy
-                        : best
-            );
-
-
-        case "Last":
-
-            return available.reduce(
-                (best, enemy) =>
-                    enemy.pathIndex <
-                    best.pathIndex
-                        ? enemy
-                        : best
-            );
-
-
-        case "Strongest":
-
-            return available.reduce(
-                (best, enemy) =>
-                    enemy.health >
-                    best.health
-                        ? enemy
-                        : best
-            );
-
-
-        case "Closest":
-
-            return available.reduce(
-                (best, enemy) => {
-
-                    const d1 =
-                        enemy.group.position
-                            .distanceTo(
-                                tower.mesh.position
-                            );
-
-                    const d2 =
-                        best.group.position
-                            .distanceTo(
-                                tower.mesh.position
-                            );
-
-                    return d1 < d2
-                        ? enemy
-                        : best;
-
-                }
-            );
-
+        return enemies.reduce(
+            (a,b) =>
+                a.health >
+                b.health
+                    ? a
+                    : b
+        );
     }
 
-    return available[0];
+
+    if (
+        tower.targetMode ===
+        "Closest"
+    ) {
+
+        return enemies.reduce(
+            (a,b) => {
+
+                const da =
+                    a.group.position
+                        .distanceTo(
+                            tower.mesh.position
+                        );
+
+                const db =
+                    b.group.position
+                        .distanceTo(
+                            tower.mesh.position
+                        );
+
+                return da < db
+                    ? a
+                    : b;
+            }
+        );
+    }
+
+
+    if (
+        tower.targetMode ===
+        "Last"
+    ) {
+
+        return enemies.reduce(
+            (a,b) =>
+                a.pathIndex <
+                b.pathIndex
+                    ? a
+                    : b
+        );
+    }
+
+
+    return enemies.reduce(
+        (a,b) =>
+            a.pathIndex >
+            b.pathIndex
+                ? a
+                : b
+    );
 }
 
 
 /* =========================================================
-   TOWER UPDATE
+   TOWERS
 ========================================================= */
 
 function updateTowers(delta) {
 
-    GAME.towers.forEach(tower => {
+    GAME.towers.forEach(
+        tower => {
 
-        if (tower.stunned > 0) {
-
-            tower.stunned -= delta;
-
-            return;
-        }
+            tower.cooldown -=
+                delta;
 
 
-        tower.cooldown -= delta;
-
-        tower.abilityCooldown -= delta;
-
-
-        const target =
-            getTarget(tower);
+            const target =
+                getTarget(tower);
 
 
-        if (!target) {
-            return;
-        }
+            if (!target) {
+                return;
+            }
 
 
-        const targetPosition =
-            target.group.position.clone();
-
-
-        targetPosition.y = tower.turret.position.y;
-
-
-        tower.turret.lookAt(
-            targetPosition
-        );
-
-
-        if (tower.cooldown <= 0) {
-
-            fireProjectile(
-                tower,
-                target
+            tower.turret.lookAt(
+                target.group.position
             );
 
-            const data =
-                TOWER_TYPES[tower.type];
+
+            if (
+                tower.cooldown <= 0
+            ) {
+
+                fireProjectile(
+                    tower,
+                    target
+                );
 
 
-            const levelMultiplier =
-                tower.level === 1
-                    ? 1
-                    : tower.level === 2
-                        ? .82
-                        : .68;
+                const data =
+                    TOWER_TYPES[
+                        tower.type
+                    ];
 
 
-            tower.cooldown =
-                data.fireRate *
-                levelMultiplier;
+                tower.cooldown =
+                    data.fireRate *
+                    (
+                        tower.level === 1
+                            ? 1
+                            : tower.level === 2
+                                ? .82
+                                : .68
+                    );
+            }
         }
-    });
+    );
 }
 
 
 /* =========================================================
-   PROJECTILES
+   PROJECTILE
 ========================================================= */
 
-function fireProjectile(tower, target) {
+function fireProjectile(
+    tower,
+    target
+) {
 
     const data =
-        TOWER_TYPES[tower.type];
+        TOWER_TYPES[
+            tower.type
+        ];
 
 
-    const projectile = new THREE.Mesh(
+    const projectile =
+        new THREE.Mesh(
 
-        new THREE.SphereGeometry(
-            tower.type === "cannon"
-                ? .22
-                : .14,
-            8,
-            8
-        ),
+            new THREE.SphereGeometry(
+                tower.type === "cannon"
+                    ? .22
+                    : .14,
+                8,
+                8
+            ),
 
-        new THREE.MeshBasicMaterial({
-            color: data.color
-        })
+            new THREE.MeshBasicMaterial({
+                color: data.color
+            })
 
-    );
+        );
 
 
     projectile.position.copy(
         tower.mesh.position
     );
 
-    projectile.position.y += 1.5;
 
-    scene.add(projectile);
+    projectile.position.y +=
+        1.5;
+
+
+    scene.add(
+        projectile
+    );
 
 
     GAME.projectiles.push({
@@ -1530,20 +1356,21 @@ function fireProjectile(tower, target) {
 
         tower,
 
-        speed: data.projectileSpeed
+        speed: data.speed
 
     });
 }
 
 
 /* =========================================================
-   PROJECTILE UPDATE
+   PROJECTILES
 ========================================================= */
 
 function updateProjectiles(delta) {
 
     for (
-        let i = GAME.projectiles.length - 1;
+        let i =
+            GAME.projectiles.length - 1;
         i >= 0;
         i--
     ) {
@@ -1558,56 +1385,6 @@ function updateProjectiles(delta) {
             )
         ) {
 
-            scene.remove(projectile.mesh);
-
-            GAME.projectiles.splice(i, 1);
-
-            continue;
-        }
-
-
-        const target =
-            projectile.target.group.position;
-
-
-        const direction =
-            target.clone()
-                .sub(projectile.mesh.position);
-
-
-        const distance =
-            direction.length();
-
-
-        if (distance < .5) {
-
-            const tower =
-                projectile.tower;
-
-            const data =
-                TOWER_TYPES[tower.type];
-
-
-            let damage =
-                data.damage;
-
-
-            if (tower.level === 2) {
-                damage *= 1.5;
-            }
-
-            if (tower.level === 3) {
-                damage *= 2.2;
-            }
-
-
-            damageEnemy(
-                projectile.target,
-                damage,
-                tower.type
-            );
-
-
             scene.remove(
                 projectile.mesh
             );
@@ -1621,242 +1398,172 @@ function updateProjectiles(delta) {
         }
 
 
+        const direction =
+            projectile.target
+                .group
+                .position
+                .clone()
+                .sub(
+                    projectile.mesh.position
+                );
+
+
+        const distance =
+            direction.length();
+
+
+        if (
+            distance < .5
+        ) {
+
+            let damage =
+                TOWER_TYPES[
+                    projectile.tower.type
+                ].damage;
+
+
+            if (
+                projectile.tower.level === 2
+            ) {
+                damage *= 1.5;
+            }
+
+
+            if (
+                projectile.tower.level === 3
+            ) {
+                damage *= 2.2;
+            }
+
+
+            damageEnemy(
+                projectile.target,
+                damage,
+                projectile.tower.type
+            );
+
+
+            scene.remove(
+                projectile.mesh
+            );
+
+
+            GAME.projectiles.splice(
+                i,
+                1
+            );
+
+
+            continue;
+        }
+
+
         direction.normalize();
 
 
-        projectile.mesh.position.addScaledVector(
-            direction,
-            projectile.speed * delta
-        );
+        projectile.mesh
+            .position
+            .addScaledVector(
+                direction,
+                projectile.speed *
+                delta
+            );
     }
 }
 
 
 /* =========================================================
-   SPECIAL ABILITIES
+   DAMAGE
 ========================================================= */
 
-function useAbility(tower) {
+function damageEnemy(
+    enemy,
+    damage,
+    towerType
+) {
 
     if (
-        tower.abilityCooldown > 0 ||
-        tower.stunned > 0
+        !GAME.enemies.includes(
+            enemy
+        )
     ) {
         return;
     }
 
 
-    if (tower.type === "archer") {
-
-        const target =
-            getTarget(tower);
-
-        if (!target) return;
-
-
-        for (let i = 0; i < 6; i++) {
-
-            setTimeout(() => {
-
-                if (
-                    GAME.enemies.includes(target)
-                ) {
-
-                    damageEnemy(
-                        target,
-                        TOWER_TYPES.archer.damage,
-                        "archer"
-                    );
-
-                }
-
-            }, i * 100);
-        }
-
-
-        tower.abilityCooldown = 15;
-
-        message("⚡ RAPID FIRE!");
-
+    if (
+        towerType === "archer" &&
+        enemy.type === "fast"
+    ) {
+        damage *= 1.25;
     }
 
 
-    else if (tower.type === "cannon") {
-
-        const center =
-            tower.mesh.position;
-
-
-        GAME.enemies.forEach(enemy => {
-
-            const distance =
-                enemy.group.position
-                    .distanceTo(center);
-
-
-            if (distance <= 3.5) {
-
-                damageEnemy(
-                    enemy,
-                    TOWER_TYPES.cannon.damage * 2.5,
-                    "cannon"
-                );
-
-            }
-        });
-
-
-        createExplosion(
-            center.clone(),
-            0xff6600,
-            3.5
-        );
-
-
-        tower.abilityCooldown = 20;
-
-        message("💥 BIG BLAST!");
-
+    if (
+        towerType === "cannon" &&
+        enemy.type === "tank"
+    ) {
+        damage *= 1.35;
     }
 
 
-    else if (tower.type === "magic") {
-
-        const targets =
-            GAME.enemies
-                .filter(enemy =>
-                    enemy.group.position
-                        .distanceTo(
-                            tower.mesh.position
-                        ) <= 10
-                )
-                .slice(0, 5);
+    if (
+        towerType === "magic" &&
+        enemy.type === "boss"
+    ) {
+        damage *= 1.15;
+    }
 
 
-        targets.forEach(enemy => {
-
-            damageEnemy(
-                enemy,
-                TOWER_TYPES.magic.damage * 2,
-                "magic"
-            );
-
-            createLightning(
-                tower.mesh.position.clone(),
-                enemy.group.position.clone()
-            );
-
-        });
+    damage *=
+        1 - enemy.armor;
 
 
-        tower.abilityCooldown = 18;
+    enemy.health -=
+        damage;
 
-        message("⚡ LIGHTNING!");
+
+    if (
+        enemy.health <= 0
+    ) {
+
+        killEnemy(enemy);
     }
 }
 
 
 /* =========================================================
-   UPGRADE SYSTEM
+   KILL
 ========================================================= */
 
-const UPGRADE_COSTS = {
+function killEnemy(enemy) {
 
-    archer: [0, 75, 125],
-
-    cannon: [0, 125, 200],
-
-    magic: [0, 175, 275]
-
-};
-
-
-function upgradeTower(tower) {
-
-    if (!tower) return;
-
-
-    if (tower.level >= 3) {
-
-        message("⭐ MAX LEVEL!");
-
+    if (
+        !GAME.enemies.includes(
+            enemy
+        )
+    ) {
         return;
     }
 
 
-    const cost =
-        UPGRADE_COSTS[tower.type]
-            [tower.level];
+    GAME.coins +=
+        enemy.reward;
 
 
-    if (GAME.coins < cost) {
-
-        message("❌ NOT ENOUGH COINS!");
-
-        return;
-    }
+    GAME.xp +=
+        enemy.type === "boss"
+            ? 100
+            : 10;
 
 
-    GAME.coins -= cost;
+    GAME.waveKills++;
 
-    tower.level++;
-
-
-    tower.mesh.scale.setScalar(
-        1 + .08 * (tower.level - 1)
-    );
+    GAME.totalKills++;
 
 
-    tower.spent += cost;
-
-
-    message(
-        `⬆️ ${TOWER_TYPES[tower.type].name} LEVEL ${tower.level}!`
-    );
-
-
-    updateHUD();
-    openTowerPanel(tower);
-}
-
-
-/* =========================================================
-   SELL
-========================================================= */
-
-function sellTower(tower) {
-
-    if (!tower) return;
-
-
-    const refund =
-        Math.floor(
-            tower.spent * .6
-        );
-
-
-    GAME.coins += refund;
-
-
-    scene.remove(tower.mesh);
-
-
-    const index =
-        GAME.towers.indexOf(tower);
-
-
-    if (index !== -1) {
-        GAME.towers.splice(index, 1);
-    }
-
-
-    GAME.selectedTower = null;
-
-    closePanel();
-
-
-    message(
-        `💰 Sold for ${refund} coins`
+    removeEnemy(
+        enemy
     );
 
 
@@ -1865,506 +1572,22 @@ function sellTower(tower) {
 
 
 /* =========================================================
-   TOWER PANEL
-========================================================= */
-
-function openTowerPanel(tower) {
-
-    GAME.selectedTower = tower;
-
-    const data =
-        TOWER_TYPES[tower.type];
-
-
-    const nextCost =
-        tower.level < 3
-            ? UPGRADE_COSTS[tower.type][tower.level]
-            : 0;
-
-
-    const abilityText =
-        tower.abilityCooldown <= 0
-            ? "READY"
-            : `${tower.abilityCooldown.toFixed(1)}s`;
-
-
-    openPanel(
-
-        `🏰 ${data.name} TOWER`,
-
-        `
-        <b>Level:</b> ${tower.level}/3<br>
-        <b>Damage:</b> ${Math.round(
-            data.damage *
-            (tower.level === 1
-                ? 1
-                : tower.level === 2
-                    ? 1.5
-                    : 2.2)
-        )}<br>
-        <b>Range:</b> ${data.range}<br>
-        <b>Target:</b> ${tower.targetMode}<br>
-        <b>Ability:</b> ${data.ability}<br>
-        <b>Ability:</b> ${abilityText}
-        `,
-
-        [
-
-            {
-                text:
-                    tower.level < 3
-                        ? `⬆️ UPGRADE (${nextCost})`
-                        : "⭐ MAX LEVEL",
-
-                action: () => {
-
-                    if (tower.level < 3) {
-                        upgradeTower(tower);
-                    }
-                }
-            },
-
-            {
-                text:
-                    `🎯 TARGET: ${tower.targetMode}`,
-
-                action: () => {
-
-                    cycleTargetMode(tower);
-
-                    openTowerPanel(tower);
-                }
-            },
-
-            {
-                text:
-                    `⚡ ${data.ability}`,
-
-                action: () => {
-
-                    useAbility(tower);
-
-                    openTowerPanel(tower);
-                }
-            },
-
-            {
-                text:
-                    "💰 SELL",
-
-                action: () => {
-                    sellTower(tower);
-                }
-            },
-
-            {
-                text:
-                    "CLOSE",
-
-                action: closePanel
-            }
-
-        ]
-    );
-}
-
-
-/* =========================================================
-   TARGET MODE
-========================================================= */
-
-function cycleTargetMode(tower) {
-
-    const modes =
-        GAME.targetModes;
-
-    const index =
-        modes.indexOf(
-            tower.targetMode
-        );
-
-
-    tower.targetMode =
-        modes[
-            (index + 1) %
-            modes.length
-        ];
-
-
-    message(
-        `🎯 Targeting: ${tower.targetMode}`
-    );
-}
-
-
-/* =========================================================
-   TOWER MENU
-========================================================= */
-
-function openTowerMenu() {
-
-    openPanel(
-
-        "🏰 BUILD TOWER",
-
-        `
-        Choose a tower to place.
-
-        <br><br>
-
-        🏹 Archer — 50<br>
-        💣 Cannon — 100<br>
-        🔮 Magic — 150
-        `,
-
-        [
-
-            {
-                text: "🏹 ARCHER — 50",
-
-                action: () => {
-
-                    GAME.selectedTowerType =
-                        "archer";
-
-                    GAME.towerMode = true;
-
-                    closePanel();
-
-                    message(
-                        "Click the map to place Archer"
-                    );
-                }
-            },
-
-            {
-                text: "💣 CANNON — 100",
-
-                action: () => {
-
-                    GAME.selectedTowerType =
-                        "cannon";
-
-                    GAME.towerMode = true;
-
-                    closePanel();
-
-                    message(
-                        "Click the map to place Cannon"
-                    );
-                }
-            },
-
-            {
-                text: "🔮 MAGIC — 150",
-
-                action: () => {
-
-                    GAME.selectedTowerType =
-                        "magic";
-
-                    GAME.towerMode = true;
-
-                    closePanel();
-
-                    message(
-                        "Click the map to place Magic"
-                    );
-                }
-            },
-
-            {
-                text: "CLOSE",
-                action: closePanel
-            }
-
-        ]
-    );
-}
-
-
-/* =========================================================
-   GENERIC PANEL
-========================================================= */
-
-let currentPanel = null;
-
-
-function openPanel(title, content, buttons) {
-
-    closePanel();
-
-
-    const panel =
-        document.createElement("div");
-
-
-    panel.style.position = "fixed";
-    panel.style.top = "50%";
-    panel.style.left = "50%";
-
-    panel.style.transform =
-        "translate(-50%, -50%)";
-
-    panel.style.zIndex = "100";
-
-    panel.style.width = "min(380px, 92vw)";
-
-    panel.style.padding = "22px";
-
-    panel.style.borderRadius = "18px";
-
-    panel.style.background =
-        "rgba(12,18,30,.96)";
-
-    panel.style.color = "white";
-
-    panel.style.boxShadow =
-        "0 20px 60px rgba(0,0,0,.5)";
-
-    panel.style.border =
-        "1px solid rgba(255,255,255,.15)";
-
-
-    const heading =
-        document.createElement("h2");
-
-    heading.innerHTML = title;
-
-    heading.style.marginBottom = "14px";
-
-    panel.appendChild(heading);
-
-
-    const contentDiv =
-        document.createElement("div");
-
-    contentDiv.innerHTML = content;
-
-    contentDiv.style.lineHeight = "1.7";
-
-    contentDiv.style.marginBottom = "18px";
-
-    panel.appendChild(contentDiv);
-
-
-    buttons.forEach(buttonData => {
-
-        const button =
-            document.createElement("button");
-
-        button.textContent =
-            buttonData.text;
-
-        button.style.width = "100%";
-        button.style.marginTop = "7px";
-
-        button.addEventListener(
-            "click",
-            buttonData.action
-        );
-
-        panel.appendChild(button);
-    });
-
-
-    document.body.appendChild(panel);
-
-    currentPanel = panel;
-}
-
-
-function closePanel() {
-
-    if (currentPanel) {
-
-        currentPanel.remove();
-
-        currentPanel = null;
-    }
-}
-
-
-/* =========================================================
-   ACHIEVEMENTS
-========================================================= */
-
-const ACHIEVEMENTS = {
-
-    firstBlood: {
-        name: "🩸 First Blood",
-        description: "Defeat your first enemy.",
-        unlocked: false
-    },
-
-    bossSlayer: {
-        name: "👑 Boss Slayer",
-        description: "Defeat a boss.",
-        unlocked: false
-    },
-
-    towerMaster: {
-        name: "🏰 Tower Master",
-        description: "Reach level 3 with a tower.",
-        unlocked: false
-    },
-
-    survivor: {
-        name: "❤️ Survivor",
-        description: "Finish a wave without losing base health.",
-        unlocked: false
-    },
-
-    rich: {
-        name: "💰 Rich",
-        description: "Reach 500 coins.",
-        unlocked: false
-    },
-
-    champion: {
-        name: "🏆 Champion",
-        description: "Complete 15 waves.",
-        unlocked: false
-    }
-
-};
-
-
-function checkAchievements(enemy) {
-
-    if (GAME.totalKills >= 1) {
-        unlockAchievement("firstBlood");
-    }
-
-
-    if (enemy.type === "boss") {
-        unlockAchievement("bossSlayer");
-    }
-
-
-    GAME.towers.forEach(tower => {
-
-        if (tower.level >= 3) {
-            unlockAchievement("towerMaster");
-        }
-    });
-
-
-    if (GAME.coins >= 500) {
-        unlockAchievement("rich");
-    }
-}
-
-
-function unlockAchievement(id) {
-
-    const achievement =
-        ACHIEVEMENTS[id];
-
-
-    if (!achievement.unlocked) {
-
-        achievement.unlocked = true;
-
-        message(
-            `🏆 Achievement Unlocked: ${achievement.name}`,
-            3000
-        );
-
-        playSound(800, .2, "square");
-
-        saveGame();
-    }
-}
-
-
-function showAchievements() {
-
-    let content = "";
-
-    Object.keys(ACHIEVEMENTS).forEach(id => {
-
-        const a =
-            ACHIEVEMENTS[id];
-
-        content += `
-
-            <div style="
-                margin-bottom:12px;
-                padding:10px;
-                border-radius:10px;
-                background:${
-                    a.unlocked
-                        ? "rgba(45,180,80,.2)"
-                        : "rgba(255,255,255,.06)"
-                };
-            ">
-
-                <b>
-                    ${a.name}
-                </b>
-
-                <br>
-
-                <small>
-                    ${a.description}
-                </small>
-
-                <br>
-
-                ${
-                    a.unlocked
-                        ? "✅ UNLOCKED"
-                        : "🔒 LOCKED"
-                }
-
-            </div>
-
-        `;
-    });
-
-
-    openPanel(
-        "🏆 ACHIEVEMENTS",
-        content,
-        [
-            {
-                text: "CLOSE",
-                action: closePanel
-            }
-        ]
-    );
-}
-
-
-/* =========================================================
-   WAVE FINISH
+   FINISH WAVE
 ========================================================= */
 
 function finishWave() {
 
-    GAME.waveRunning = false;
+    GAME.waveRunning =
+        false;
+
 
     const reward =
-        25 + GAME.wave * 5;
+        25 +
+        GAME.wave * 5;
 
 
-    GAME.coins += reward;
-
-
-    if (GAME.waveKills > 0) {
-        GAME.xp += GAME.waveKills * 2;
-    }
-
-
-    if (GAME.waveKills > 0) {
-        unlockAchievement("survivor");
-    }
-
-
-    message(
-        `🎉 Wave cleared! +${reward} coins`
-    );
+    GAME.coins +=
+        reward;
 
 
     if (
@@ -2372,460 +1595,51 @@ function finishWave() {
         GAME.maxVictoryWave
     ) {
 
-        victory();
+        GAME.victory =
+            true;
 
-        return;
+        message(
+            "🏆 VICTORY!"
+        );
+
+    } else {
+
+        GAME.wave++;
+
+        startWaveButton.disabled =
+            false;
+
+        message(
+            `🎉 Wave cleared! +${reward}`
+        );
     }
-
-
-    GAME.wave++;
-
-    startWaveButton.disabled = false;
-
-    startWaveButton.style.opacity = "1";
 
 
     updateHUD();
 
-    saveGame();
+    multiplayerPush();
 }
 
 
 /* =========================================================
-   VICTORY
+   END GAME
 ========================================================= */
 
-function victory() {
+function endGame() {
 
-    GAME.victory = true;
+    GAME.gameOver =
+        true;
 
-    GAME.waveRunning = false;
+    GAME.waveRunning =
+        false;
 
-    unlockAchievement("champion");
 
-
-    openPanel(
-
-        "🏆 VICTORY!",
-
-        `
-        <div style="text-align:center">
-
-            <div style="font-size:50px">
-                👑
-            </div>
-
-            <h3>
-                You defeated 15 waves!
-            </h3>
-
-            <br>
-
-            💰 Coins: ${GAME.coins}<br>
-            ⭐ XP: ${GAME.xp}<br>
-            ☠️ Kills: ${GAME.totalKills}
-
-        </div>
-        `,
-
-        [
-
-            {
-                text: "🔄 PLAY AGAIN",
-
-                action: () => {
-                    location.reload();
-                }
-            }
-
-        ]
-
+    message(
+        "💀 GAME OVER"
     );
-}
 
 
-/* =========================================================
-   GAME OVER
-========================================================= */
-
-function gameOver() {
-
-    GAME.gameOver = true;
-
-    GAME.waveRunning = false;
-
-
-    openPanel(
-
-        "💀 GAME OVER",
-
-        `
-        <div style="text-align:center">
-
-            <div style="font-size:50px">
-                💀
-            </div>
-
-            <h3>
-                The base was destroyed.
-            </h3>
-
-            <br>
-
-            Wave reached: ${GAME.wave}<br>
-            Kills: ${GAME.totalKills}
-
-        </div>
-        `,
-
-        [
-
-            {
-                text: "🔄 TRY AGAIN",
-
-                action: () => {
-                    localStorage.removeItem(
-                        "greakTowerV06"
-                    );
-
-                    location.reload();
-                }
-            }
-
-        ]
-
-    );
-}
-
-
-/* =========================================================
-   EFFECTS
-========================================================= */
-
-function createExplosion(position, color, size) {
-
-    const geometry =
-        new THREE.SphereGeometry(
-            .25,
-            12,
-            12
-        );
-
-
-    const material =
-        new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity: .8
-        });
-
-
-    const mesh =
-        new THREE.Mesh(
-            geometry,
-            material
-        );
-
-
-    mesh.position.copy(position);
-
-    scene.add(mesh);
-
-
-    GAME.effects.push({
-
-        mesh,
-
-        life: .35,
-
-        maxLife: .35,
-
-        size
-
-    });
-}
-
-
-function createHitEffect(position) {
-
-    createExplosion(
-        position,
-        0xffffaa,
-        .6
-    );
-}
-
-
-function createLightning(start, end) {
-
-    const geometry =
-        new THREE.BufferGeometry()
-            .setFromPoints([
-                start,
-                end
-            ]);
-
-
-    const material =
-        new THREE.LineBasicMaterial({
-            color: 0xffff00
-        });
-
-
-    const line =
-        new THREE.Line(
-            geometry,
-            material
-        );
-
-
-    scene.add(line);
-
-
-    GAME.effects.push({
-
-        mesh: line,
-
-        life: .15,
-
-        maxLife: .15,
-
-        size: 1
-
-    });
-}
-
-
-/* =========================================================
-   DAMAGE NUMBERS
-========================================================= */
-
-function createDamageNumber(position, damage) {
-
-    const div =
-        document.createElement("div");
-
-
-    div.textContent =
-        `-${damage}`;
-
-
-    div.style.position = "fixed";
-
-    div.style.zIndex = "80";
-
-    div.style.color = "white";
-
-    div.style.fontWeight = "900";
-
-    div.style.fontSize = "15px";
-
-    div.style.pointerEvents = "none";
-
-
-    document.body.appendChild(div);
-
-
-    let life = 0;
-
-
-    function animateNumber() {
-
-        life += .04;
-
-
-        div.style.opacity =
-            String(
-                Math.max(
-                    0,
-                    1 - life
-                )
-            );
-
-
-        div.style.transform =
-            `translate(-50%, -${life * 40}px)`;
-
-
-        if (life < 1) {
-
-            requestAnimationFrame(
-                animateNumber
-            );
-
-        } else {
-
-            div.remove();
-        }
-    }
-
-
-    const projected =
-        position.clone().project(camera);
-
-
-    div.style.left =
-        `${(projected.x + 1) / 2 * innerWidth}px`;
-
-    div.style.top =
-        `${(-projected.y + 1) / 2 * innerHeight}px`;
-
-
-    animateNumber();
-}
-
-
-/* =========================================================
-   EFFECT UPDATE
-========================================================= */
-
-function updateEffects(delta) {
-
-    for (
-        let i = GAME.effects.length - 1;
-        i >= 0;
-        i--
-    ) {
-
-        const effect =
-            GAME.effects[i];
-
-
-        effect.life -= delta;
-
-
-        const progress =
-            1 -
-            effect.life /
-            effect.maxLife;
-
-
-        effect.mesh.scale.setScalar(
-            1 + progress * effect.size * 4
-        );
-
-
-        if (
-            effect.mesh.material
-        ) {
-
-            effect.mesh.material.opacity =
-                Math.max(
-                    0,
-                    effect.life /
-                    effect.maxLife
-                );
-        }
-
-
-        if (effect.life <= 0) {
-
-            scene.remove(
-                effect.mesh
-            );
-
-            GAME.effects.splice(
-                i,
-                1
-            );
-        }
-    }
-}
-
-
-/* =========================================================
-   SAVE SYSTEM
-========================================================= */
-
-const SAVE_KEY =
-    "greakTowerV06";
-
-
-function saveGame() {
-
-    const save = {
-
-        coins: GAME.coins,
-
-        xp: GAME.xp,
-
-        wave: GAME.wave,
-
-        totalKills: GAME.totalKills,
-
-        achievements:
-            Object.fromEntries(
-                Object.entries(
-                    ACHIEVEMENTS
-                ).map(
-                    ([key, value]) =>
-                        [key, value.unlocked]
-                )
-            )
-
-    };
-
-
-    localStorage.setItem(
-        SAVE_KEY,
-        JSON.stringify(save)
-    );
-}
-
-
-function loadGame() {
-
-    const raw =
-        localStorage.getItem(
-            SAVE_KEY
-        );
-
-
-    if (!raw) return;
-
-
-    try {
-
-        const save =
-            JSON.parse(raw);
-
-
-        GAME.coins =
-            save.coins ?? 100;
-
-        GAME.xp =
-            save.xp ?? 0;
-
-        GAME.wave =
-            save.wave ?? 1;
-
-        GAME.totalKills =
-            save.totalKills ?? 0;
-
-
-        if (save.achievements) {
-
-            Object.keys(
-                save.achievements
-            ).forEach(id => {
-
-                if (
-                    ACHIEVEMENTS[id]
-                ) {
-
-                    ACHIEVEMENTS[id].unlocked =
-                        save.achievements[id];
-                }
-
-            });
-        }
-
-    } catch (error) {
-
-        console.warn(
-            "Save data could not be loaded."
-        );
-    }
+    multiplayerPush();
 }
 
 
@@ -2836,7 +1650,9 @@ function loadGame() {
 function updateHUD() {
 
     coinsEl.textContent =
-        GAME.coins;
+        Math.floor(
+            GAME.coins
+        );
 
     healthEl.textContent =
         GAME.baseHealth;
@@ -2853,129 +1669,1279 @@ function updateHUD() {
    MESSAGE
 ========================================================= */
 
-let messageTimer = null;
+let messageTimer;
 
 
-function message(text, duration = 1800) {
+function message(
+    text,
+    duration = 1800
+) {
 
     messageEl.innerHTML =
         text;
+
 
     messageEl.style.opacity =
         "1";
 
 
-    clearTimeout(messageTimer);
+    clearTimeout(
+        messageTimer
+    );
 
 
     messageTimer =
-        setTimeout(() => {
+        setTimeout(
+            () => {
 
-            messageEl.style.opacity =
-                "0";
+                messageEl.style.opacity =
+                    "0";
 
-        }, duration);
+            },
+            duration
+        );
 }
 
 
 /* =========================================================
-   AUDIO
+   MULTIPLAYER PANEL
 ========================================================= */
 
-let audioContext = null;
+function multiplayerMenu() {
+
+    if (
+        MULTI.connected
+    ) {
+
+        showRoomPanel();
+
+        return;
+    }
 
 
-function playSound(
-    frequency,
-    duration,
-    type = "sine"
-) {
+    openPanel(
+
+        "🌐 MULTIPLAYER",
+
+        `
+            <div style="
+                text-align:center;
+                line-height:1.8;
+            ">
+
+                <b>GREAK TOWER CO-OP</b>
+
+                <br><br>
+
+                Play together with
+                another player.
+
+                <br><br>
+
+                Create a room or
+                enter a room code.
+
+            </div>
+        `,
+
+        [
+
+            {
+                text:
+                    "🏠 CREATE ROOM",
+
+                action:
+                    createMultiplayerRoom
+            },
+
+            {
+                text:
+                    "🔑 JOIN ROOM",
+
+                action:
+                    showJoinRoom
+            },
+
+            {
+                text:
+                    "CLOSE",
+
+                action:
+                    closePanel
+            }
+
+        ]
+    );
+}
+
+
+/* =========================================================
+   CREATE ROOM
+========================================================= */
+
+async function createMultiplayerRoom() {
+
+    closePanel();
+
+
+    if (
+        SERVER_URL.includes(
+            "PASTE_YOUR"
+        )
+    ) {
+
+        message(
+            "⚠️ Add your Apps Script URL first."
+        );
+
+        return;
+    }
+
+
+    message(
+        "🌐 Creating room..."
+    );
+
 
     try {
 
-        if (!audioContext) {
+        const response =
+            await fetch(
+                SERVER_URL +
+                "?action=create"
+            );
 
-            audioContext =
-                new (
-                    window.AudioContext ||
-                    window.webkitAudioContext
-                )();
+
+        const data =
+            await response.json();
+
+
+        if (!data.ok) {
+
+            throw new Error(
+                data.error
+            );
         }
 
 
-        const oscillator =
-            audioContext.createOscillator();
+        MULTI.room =
+            data.room;
 
-        const gain =
-            audioContext.createGain();
+        MULTI.player =
+            data.player;
 
+        MULTI.host =
+            true;
 
-        oscillator.type = type;
-
-        oscillator.frequency.value =
-            frequency;
-
-
-        gain.gain.setValueAtTime(
-            .08,
-            audioContext.currentTime
-        );
+        MULTI.connected =
+            true;
 
 
-        gain.gain.exponentialRampToValueAtTime(
-            .001,
-            audioContext.currentTime +
-            duration
-        );
+        updateConnectionUI();
 
 
-        oscillator.connect(gain);
-
-        gain.connect(
-            audioContext.destination
-        );
+        showRoomPanel();
 
 
-        oscillator.start();
+        startMultiplayerPolling();
 
-        oscillator.stop(
-            audioContext.currentTime +
-            duration
-        );
 
     } catch (error) {
-        /* Audio unavailable */
+
+        message(
+            "❌ Could not create room."
+        );
     }
 }
 
 
 /* =========================================================
-   RAYCASTING
+   JOIN ROOM
 ========================================================= */
 
-const raycaster =
-    new THREE.Raycaster();
+function showJoinRoom() {
 
-const mouse =
-    new THREE.Vector2();
+    openPanel(
+
+        "🔑 JOIN ROOM",
+
+        `
+            <input
+                id="roomCodeInput"
+                maxlength="6"
+                placeholder="ROOM CODE"
+                style="
+                    width:100%;
+                    padding:14px;
+                    border-radius:10px;
+                    border:none;
+                    font-size:20px;
+                    text-align:center;
+                    text-transform:uppercase;
+                "
+            >
+        `,
+
+        [
+
+            {
+                text:
+                    "🚀 JOIN",
+
+                action:
+                    joinMultiplayerRoom
+            },
+
+            {
+                text:
+                    "BACK",
+
+                action:
+                    multiplayerMenu
+            }
+
+        ]
+    );
+}
 
 
-function getMousePosition(event) {
+async function joinMultiplayerRoom() {
 
-    mouse.x =
-        (event.clientX /
-            window.innerWidth) *
-            2 - 1;
-
-    mouse.y =
-        -(event.clientY /
-            window.innerHeight) *
-            2 + 1;
+    const input =
+        document.getElementById(
+            "roomCodeInput"
+        );
 
 
-    raycaster.setFromCamera(
-        mouse,
-        camera
+    if (!input) return;
+
+
+    const code =
+        input.value
+            .trim()
+            .toUpperCase();
+
+
+    if (
+        code.length !== 6
+    ) {
+
+        message(
+            "❌ Enter a 6-character room code."
+        );
+
+        return;
+    }
+
+
+    closePanel();
+
+
+    message(
+        "🌐 Joining room..."
+    );
+
+
+    try {
+
+        const url =
+            SERVER_URL +
+            "?action=join" +
+            "&room=" +
+            encodeURIComponent(
+                code
+            ) +
+            "&player=guest";
+
+
+        const response =
+            await fetch(url);
+
+
+        const data =
+            await response.json();
+
+
+        if (!data.ok) {
+
+            throw new Error(
+                data.error
+            );
+        }
+
+
+        MULTI.room =
+            data.room;
+
+        MULTI.player =
+            "guest";
+
+        MULTI.host =
+            false;
+
+        MULTI.connected =
+            true;
+
+
+        updateConnectionUI();
+
+
+        startMultiplayerPolling();
+
+
+        message(
+            "🤝 Joined room!"
+        );
+
+
+    } catch (error) {
+
+        message(
+            "❌ " +
+            error.message
+        );
+    }
+}
+
+
+/* =========================================================
+   ROOM PANEL
+========================================================= */
+
+function showRoomPanel() {
+
+    const status =
+        MULTI.host
+            ? "👑 YOU ARE HOST"
+            : "👤 YOU ARE PLAYER 2";
+
+
+    const guest =
+        MULTI.guestOnline
+            ? "🟢 Player 2 connected"
+            : "🟡 Waiting for Player 2";
+
+
+    openPanel(
+
+        "🌐 MULTIPLAYER ROOM",
+
+        `
+            <div style="
+                text-align:center;
+            ">
+
+                <div style="
+                    font-size:13px;
+                    opacity:.7;
+                ">
+                    ROOM CODE
+                </div>
+
+                <div style="
+                    font-size:38px;
+                    font-weight:900;
+                    letter-spacing:7px;
+                    margin:10px 0;
+                ">
+                    ${MULTI.room}
+                </div>
+
+                <div>
+                    ${status}
+                </div>
+
+                <br>
+
+                <div>
+                    ${guest}
+                </div>
+
+                <br>
+
+                <small>
+                    Share this code with
+                    your teammate.
+                </small>
+
+            </div>
+        `,
+
+        [
+
+            {
+                text:
+                    "🚪 LEAVE ROOM",
+
+                action:
+                    leaveMultiplayer
+            },
+
+            {
+                text:
+                    "CLOSE",
+
+                action:
+                    closePanel
+            }
+
+        ]
+    );
+}
+
+
+/* =========================================================
+   MULTIPLAYER POLLING
+========================================================= */
+
+function startMultiplayerPolling() {
+
+    clearInterval(
+        MULTI.pollTimer
+    );
+
+
+    MULTI.pollTimer =
+        setInterval(
+            multiplayerPoll,
+            1000
+        );
+
+
+    multiplayerPoll();
+}
+
+
+async function multiplayerPoll() {
+
+    if (
+        !MULTI.connected ||
+        !MULTI.room
+    ) {
+        return;
+    }
+
+
+    try {
+
+        const url =
+            SERVER_URL +
+            "?action=state" +
+            "&room=" +
+            encodeURIComponent(
+                MULTI.room
+            ) +
+            "&player=" +
+            MULTI.player;
+
+
+        const response =
+            await fetch(url);
+
+
+        const data =
+            await response.json();
+
+
+        if (!data.ok) {
+
+            leaveLocalRoom();
+
+            message(
+                "❌ Room ended."
+            );
+
+            return;
+        }
+
+
+        MULTI.guestOnline =
+            data.guestOnline;
+
+
+        updateConnectionUI();
+
+
+        /*
+           ONLY THE GUEST RECEIVES
+           THE HOST'S GAME STATE.
+        */
+
+        if (
+            !MULTI.host &&
+            data.state
+        ) {
+
+            applyRemoteState(
+                data.state
+            );
+        }
+
+
+    } catch (error) {
+
+        updateConnectionUI(
+            false
+        );
+    }
+}
+
+
+/* =========================================================
+   HOST STATE PUSH
+========================================================= */
+
+function startStateSync() {
+
+    clearInterval(
+        MULTI.pushTimer
+    );
+
+
+    MULTI.pushTimer =
+        setInterval(
+            () => {
+
+                if (
+                    MULTI.host &&
+                    MULTI.connected
+                ) {
+
+                    multiplayerPush();
+                }
+
+            },
+            700
+        );
+}
+
+
+async function multiplayerPush() {
+
+    if (
+        !MULTI.host ||
+        !MULTI.connected ||
+        !MULTI.room
+    ) {
+        return;
+    }
+
+
+    const state =
+        serializeGame();
+
+
+    const encoded =
+        encodeURIComponent(
+            JSON.stringify(state)
+        );
+
+
+    try {
+
+        const url =
+            SERVER_URL +
+            "?action=push" +
+            "&room=" +
+            encodeURIComponent(
+                MULTI.room
+            ) +
+            "&player=host" +
+            "&state=" +
+            encoded;
+
+
+        await fetch(
+            url
+        );
+
+    } catch (error) {
+
+        updateConnectionUI(
+            false
+        );
+    }
+}
+
+
+/* =========================================================
+   SERIALIZE GAME
+========================================================= */
+
+function serializeGame() {
+
+    return {
+
+        coins:
+            GAME.coins,
+
+        baseHealth:
+            GAME.baseHealth,
+
+        wave:
+            GAME.wave,
+
+        xp:
+            GAME.xp,
+
+        waveRunning:
+            GAME.waveRunning,
+
+        gameOver:
+            GAME.gameOver,
+
+        victory:
+            GAME.victory,
+
+        totalKills:
+            GAME.totalKills,
+
+        towers:
+            GAME.towers.map(
+                tower => ({
+
+                    id:
+                        tower.id,
+
+                    type:
+                        tower.type,
+
+                    owner:
+                        tower.owner,
+
+                    x:
+                        tower.mesh
+                            .position.x,
+
+                    z:
+                        tower.mesh
+                            .position.z,
+
+                    level:
+                        tower.level,
+
+                    targetMode:
+                        tower.targetMode
+
+                })
+            ),
+
+        enemies:
+            GAME.enemies.map(
+                enemy => ({
+
+                    type:
+                        enemy.type,
+
+                    x:
+                        enemy.group
+                            .position.x,
+
+                    z:
+                        enemy.group
+                            .position.z,
+
+                    health:
+                        enemy.health,
+
+                    pathIndex:
+                        enemy.pathIndex
+
+                })
+            )
+
+    };
+}
+
+
+/* =========================================================
+   APPLY REMOTE STATE
+========================================================= */
+
+function applyRemoteState(
+    state
+) {
+
+    if (!state) return;
+
+
+    MULTI.syncing =
+        true;
+
+
+    GAME.coins =
+        state.coins;
+
+    GAME.baseHealth =
+        state.baseHealth;
+
+    GAME.wave =
+        state.wave;
+
+    GAME.xp =
+        state.xp;
+
+    GAME.waveRunning =
+        state.waveRunning;
+
+    GAME.gameOver =
+        state.gameOver;
+
+    GAME.victory =
+        state.victory;
+
+    GAME.totalKills =
+        state.totalKills;
+
+
+    syncTowers(
+        state.towers || []
+    );
+
+
+    syncEnemies(
+        state.enemies || []
+    );
+
+
+    updateHUD();
+
+
+    MULTI.syncing =
+        false;
+}
+
+
+/* =========================================================
+   SYNC TOWERS
+========================================================= */
+
+function syncTowers(
+    remoteTowers
+) {
+
+    const remoteIds =
+        remoteTowers.map(
+            tower => tower.id
+        );
+
+
+    /*
+       CREATE MISSING TOWERS
+    */
+
+    remoteTowers.forEach(
+        remote => {
+
+            let tower =
+                GAME.towers.find(
+                    t =>
+                        t.id ===
+                        remote.id
+                );
+
+
+            if (!tower) {
+
+                tower =
+                    createTower(
+
+                        remote.type,
+
+                        new THREE.Vector3(
+                            remote.x,
+                            0,
+                            remote.z
+                        ),
+
+                        remote.owner
+
+                    );
+
+
+                tower.id =
+                    remote.id;
+            }
+
+
+            tower.level =
+                remote.level;
+
+            tower.targetMode =
+                remote.targetMode;
+
+            tower.mesh.position.x =
+                remote.x;
+
+            tower.mesh.position.z =
+                remote.z;
+
+
+            tower.mesh.scale.setScalar(
+                1 +
+                .08 *
+                (tower.level - 1)
+            );
+        }
+    );
+
+
+    /*
+       REMOVE TOWERS THAT
+       NO LONGER EXIST
+    */
+
+    for (
+        let i =
+            GAME.towers.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const tower =
+            GAME.towers[i];
+
+
+        if (
+            !remoteIds.includes(
+                tower.id
+            )
+        ) {
+
+            scene.remove(
+                tower.mesh
+            );
+
+            GAME.towers.splice(
+                i,
+                1
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   SYNC ENEMIES
+========================================================= */
+
+function syncEnemies(
+    remoteEnemies
+) {
+
+    /*
+       For V0.7 the host is
+       authoritative.
+
+       Guest visually follows
+       the host's enemy state.
+    */
+
+    while (
+        GAME.enemies.length >
+        remoteEnemies.length
+    ) {
+
+        removeEnemy(
+            GAME.enemies[
+                GAME.enemies.length - 1
+            ]
+        );
+    }
+
+
+    remoteEnemies.forEach(
+        (remote, index) => {
+
+            let enemy =
+                GAME.enemies[index];
+
+
+            if (
+                !enemy ||
+                enemy.type !==
+                remote.type
+            ) {
+
+                if (enemy) {
+                    removeEnemy(enemy);
+                }
+
+
+                createEnemy(
+                    remote.type
+                );
+
+
+                enemy =
+                    GAME.enemies[
+                        GAME.enemies.length - 1
+                    ];
+            }
+
+
+            enemy.group.position.x =
+                remote.x;
+
+            enemy.group.position.z =
+                remote.z;
+
+            enemy.health =
+                remote.health;
+
+            enemy.pathIndex =
+                remote.pathIndex;
+        }
+    );
+}
+
+
+/* =========================================================
+   CONNECTION UI
+========================================================= */
+
+function updateConnectionUI(
+    forceOffline = false
+) {
+
+    if (
+        forceOffline ||
+        !MULTI.connected
+    ) {
+
+        connectionDot.style.background =
+            "#777";
+
+        connectionText.textContent =
+            "Offline";
+
+        return;
+    }
+
+
+    connectionDot.style.background =
+        MULTI.guestOnline ||
+        !MULTI.host
+            ? "#24d05a"
+            : "#ffc107";
+
+
+    connectionText.textContent =
+        MULTI.host
+            ? (
+                MULTI.guestOnline
+                    ? "2 Players"
+                    : "Waiting..."
+            )
+            : "Connected";
+}
+
+
+/* =========================================================
+   LEAVE
+========================================================= */
+
+async function leaveMultiplayer() {
+
+    try {
+
+        await fetch(
+            SERVER_URL +
+            "?action=leave" +
+            "&room=" +
+            encodeURIComponent(
+                MULTI.room
+            ) +
+            "&player=" +
+            MULTI.player
+        );
+
+    } catch (error) {}
+
+
+    leaveLocalRoom();
+
+    closePanel();
+
+    message(
+        "🚪 Left multiplayer room."
+    );
+}
+
+
+function leaveLocalRoom() {
+
+    MULTI.connected =
+        false;
+
+    MULTI.room =
+        null;
+
+    MULTI.player =
+        null;
+
+    MULTI.host =
+        false;
+
+    MULTI.guestOnline =
+        false;
+
+
+    clearInterval(
+        MULTI.pollTimer
+    );
+
+    clearInterval(
+        MULTI.pushTimer
+    );
+
+
+    updateConnectionUI(
+        true
+    );
+}
+
+
+/* =========================================================
+   PANEL
+========================================================= */
+
+let currentPanel =
+    null;
+
+
+function openPanel(
+    title,
+    content,
+    buttons
+) {
+
+    closePanel();
+
+
+    const panel =
+        document.createElement(
+            "div"
+        );
+
+
+    Object.assign(
+        panel.style,
+        {
+
+            position:
+                "fixed",
+
+            top:
+                "50%",
+
+            left:
+                "50%",
+
+            transform:
+                "translate(-50%,-50%)",
+
+            zIndex:
+                "100",
+
+            width:
+                "min(400px,92vw)",
+
+            padding:
+                "22px",
+
+            borderRadius:
+                "18px",
+
+            background:
+                "rgba(12,18,30,.97)",
+
+            color:
+                "white",
+
+            boxShadow:
+                "0 20px 60px rgba(0,0,0,.5)"
+
+        }
+    );
+
+
+    const heading =
+        document.createElement(
+            "h2"
+        );
+
+
+    heading.innerHTML =
+        title;
+
+
+    heading.style.marginBottom =
+        "14px";
+
+
+    panel.appendChild(
+        heading
+    );
+
+
+    const contentDiv =
+        document.createElement(
+            "div"
+        );
+
+
+    contentDiv.innerHTML =
+        content;
+
+
+    contentDiv.style.lineHeight =
+        "1.7";
+
+
+    panel.appendChild(
+        contentDiv
+    );
+
+
+    buttons.forEach(
+        data => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.textContent =
+                data.text;
+
+
+            button.style.width =
+                "100%";
+
+
+            button.style.marginTop =
+                "8px";
+
+
+            button.addEventListener(
+                "click",
+                data.action
+            );
+
+
+            panel.appendChild(
+                button
+            );
+        }
+    );
+
+
+    document.body.appendChild(
+        panel
+    );
+
+
+    currentPanel =
+        panel;
+}
+
+
+function closePanel() {
+
+    if (
+        currentPanel
+    ) {
+
+        currentPanel.remove();
+
+        currentPanel =
+            null;
+    }
+}
+
+
+/* =========================================================
+   TOWER MENU
+========================================================= */
+
+function towerMenu() {
+
+    openPanel(
+
+        "🏰 BUILD TOWER",
+
+        `
+            Choose a tower:
+
+            <br><br>
+
+            🏹 Archer — 50<br>
+            💣 Cannon — 100<br>
+            🔮 Magic — 150
+        `,
+
+        [
+
+            {
+                text:
+                    "🏹 ARCHER",
+
+                action: () =>
+                    selectTower(
+                        "archer"
+                    )
+            },
+
+            {
+                text:
+                    "💣 CANNON",
+
+                action: () =>
+                    selectTower(
+                        "cannon"
+                    )
+            },
+
+            {
+                text:
+                    "🔮 MAGIC",
+
+                action: () =>
+                    selectTower(
+                        "magic"
+                    )
+            },
+
+            {
+                text:
+                    "CLOSE",
+
+                action:
+                    closePanel
+            }
+
+        ]
+    );
+}
+
+
+function selectTower(
+    type
+) {
+
+    GAME.selectedTowerType =
+        type;
+
+    GAME.towerMode =
+        true;
+
+    closePanel();
+
+
+    message(
+        "🖱️ Click the map to place your tower."
     );
 }
 
@@ -2984,24 +2950,49 @@ function getMousePosition(event) {
    MAP CLICK
 ========================================================= */
 
+const raycaster =
+    new THREE.Raycaster();
+
+
+const mouse =
+    new THREE.Vector2();
+
+
 renderer.domElement.addEventListener(
     "pointerdown",
     event => {
 
-        getMousePosition(event);
+        mouse.x =
+            event.clientX /
+            innerWidth *
+            2 - 1;
+
+        mouse.y =
+            -(event.clientY /
+                innerHeight *
+                2 - 1);
 
 
-        /* TOWER PLACEMENT */
+        raycaster.setFromCamera(
+            mouse,
+            camera
+        );
 
-        if (GAME.towerMode) {
+
+        if (
+            GAME.towerMode
+        ) {
 
             const hits =
-                raycaster.intersectObject(
-                    ground
-                );
+                raycaster
+                    .intersectObject(
+                        ground
+                    );
 
 
-            if (!hits.length) {
+            if (
+                !hits.length
+            ) {
                 return;
             }
 
@@ -3010,36 +3001,39 @@ renderer.domElement.addEventListener(
                 hits[0].point;
 
 
-            position.y = 0;
+            let blocked =
+                false;
 
 
-            /* DON'T PLACE ON PATH */
+            pathMeshes.forEach(
+                path => {
 
-            let blocked = false;
-
-
-            pathMeshes.forEach(path => {
-
-                const box =
-                    new THREE.Box3()
-                        .setFromObject(path);
+                    const box =
+                        new THREE.Box3()
+                            .setFromObject(
+                                path
+                            );
 
 
-                if (
-                    box.containsPoint(
-                        position
-                    )
-                ) {
+                    if (
+                        box.containsPoint(
+                            position
+                        )
+                    ) {
 
-                    blocked = true;
+                        blocked =
+                            true;
+                    }
                 }
-            });
+            );
 
 
-            if (blocked) {
+            if (
+                blocked
+            ) {
 
                 message(
-                    "❌ You can't build on the path!"
+                    "❌ Can't build on the path!"
                 );
 
                 return;
@@ -3050,13 +3044,15 @@ renderer.domElement.addEventListener(
                 GAME.selectedTowerType;
 
 
-            const data =
-                TOWER_TYPES[type];
+            const cost =
+                TOWER_TYPES[
+                    type
+                ].cost;
 
 
             if (
                 GAME.coins <
-                data.cost
+                cost
             ) {
 
                 message(
@@ -3068,16 +3064,18 @@ renderer.domElement.addEventListener(
 
 
             GAME.coins -=
-                data.cost;
+                cost;
 
 
             createTower(
                 type,
-                position
+                position,
+                MULTI.player
             );
 
 
-            GAME.towerMode = false;
+            GAME.towerMode =
+                false;
 
             GAME.selectedTowerType =
                 null;
@@ -3085,69 +3083,17 @@ renderer.domElement.addEventListener(
 
             updateHUD();
 
-            saveGame();
 
-            message(
-                `🏰 ${data.name} placed!`
-            );
+            if (
+                MULTI.host
+            ) {
+
+                multiplayerPush();
+            }
+
 
             return;
         }
-
-
-        /* TOWER SELECTION */
-
-        const objects =
-            [];
-
-
-        GAME.towers.forEach(tower => {
-
-            tower.mesh.traverse(
-                child => {
-
-                    if (
-                        child.isMesh
-                    ) {
-                        objects.push({
-                            mesh: child,
-                            tower
-                        });
-                    }
-
-                }
-            );
-
-        });
-
-
-        const intersects =
-            raycaster.intersectObjects(
-                objects.map(
-                    object => object.mesh
-                ),
-                true
-            );
-
-
-        if (intersects.length) {
-
-            const selected =
-                objects.find(
-                    object =>
-                        object.mesh ===
-                        intersects[0].object
-                );
-
-
-            if (selected) {
-
-                openTowerPanel(
-                    selected.tower
-                );
-            }
-        }
-
     }
 );
 
@@ -3164,55 +3110,13 @@ startWaveButton.addEventListener(
 
 towerButton.addEventListener(
     "click",
-    openTowerMenu
+    towerMenu
 );
 
 
-achievementsButton.addEventListener(
+multiplayerButton.addEventListener(
     "click",
-    showAchievements
-);
-
-
-/* =========================================================
-   START BUTTON RIGHT CLICK
-   Opens wave preview
-========================================================= */
-
-startWaveButton.addEventListener(
-    "contextmenu",
-    event => {
-
-        event.preventDefault();
-
-        wavePreview();
-    }
-);
-
-
-/* =========================================================
-   KEYBOARD
-========================================================= */
-
-window.addEventListener(
-    "keydown",
-    event => {
-
-        if (event.key === "Escape") {
-
-            GAME.towerMode = false;
-
-            GAME.selectedTowerType =
-                null;
-
-            closePanel();
-
-            message(
-                "Cancelled"
-            );
-        }
-
-    }
+    multiplayerMenu
 );
 
 
@@ -3225,14 +3129,14 @@ window.addEventListener(
     () => {
 
         camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
+            innerWidth /
+            innerHeight;
 
         camera.updateProjectionMatrix();
 
         renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
+            innerWidth,
+            innerHeight
         );
 
     }
@@ -3262,23 +3166,52 @@ function animate(now) {
         );
 
 
-    lastTime = now;
+    lastTime =
+        now;
 
+
+    /*
+       HOST SIMULATES THE GAME.
+
+       GUEST mainly receives
+       the host's state.
+    */
 
     if (
         !GAME.gameOver &&
         !GAME.victory
     ) {
 
-        updateSpawning(delta);
+        if (
+            MULTI.connected &&
+            !MULTI.host
+        ) {
 
-        updateEnemies(delta);
+            /*
+               Guest doesn't run
+               the authoritative
+               simulation.
+            */
 
-        updateTowers(delta);
+        } else {
 
-        updateProjectiles(delta);
+            updateSpawning(
+                delta
+            );
 
-        updateEffects(delta);
+            updateEnemies(
+                delta
+            );
+
+            updateTowers(
+                delta
+            );
+
+            updateProjectiles(
+                delta
+            );
+
+        }
     }
 
 
@@ -3290,16 +3223,13 @@ function animate(now) {
 
 
 /* =========================================================
-   INITIALIZATION
+   START
 ========================================================= */
-
-loadGame();
 
 updateHUD();
 
-message(
-    "🎮 Welcome to GREAK TOWER V0.6!",
-    2500
+updateConnectionUI(
+    true
 );
 
 animate(
