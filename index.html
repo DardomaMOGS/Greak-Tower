@@ -1,25 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>GREAK TOWER V0.6</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <link rel="stylesheet" href="style.css">
+    <title>GREAK TOWER V0.7</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
 </head>
 
 <body>
 
     <div id="game"></div>
 
-    <!-- TOP HUD -->
+
+    <!-- HUD -->
+
     <div id="hud">
 
         <div id="brand">
+
             GREAK TOWER
-            <span class="version">V0.6</span>
+
+            <span class="version">
+                V0.7
+            </span>
+
         </div>
+
 
         <div id="stats">
 
@@ -36,7 +54,7 @@
             </div>
 
             <div class="stat">
-                ⭐ <span id="xp">0</span> XP
+                ⭐ <span id="xp">0</span>
             </div>
 
         </div>
@@ -44,7 +62,21 @@
     </div>
 
 
-    <!-- BOTTOM CONTROLS -->
+    <!-- MULTIPLAYER STATUS -->
+
+    <div id="multiplayerStatus">
+
+        <span id="connectionDot"></span>
+
+        <span id="connectionText">
+            Offline
+        </span>
+
+    </div>
+
+
+    <!-- CONTROLS -->
+
     <div id="controls">
 
         <button id="startWave">
@@ -55,8 +87,8 @@
             🏰 TOWER
         </button>
 
-        <button id="achievementsButton">
-            🏆
+        <button id="multiplayerButton">
+            🌐 MULTIPLAYER
         </button>
 
     </div>
@@ -70,4 +102,5 @@
     <script src="script.js"></script>
 
 </body>
+
 </html>
