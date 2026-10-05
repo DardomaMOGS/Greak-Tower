@@ -96,7 +96,9 @@ const MULTI = {
 
     lastRemoteState: null,
 
-    syncing: false
+    syncing: false,
+
+    smoothTimer: 0
 
 };
 
@@ -714,7 +716,10 @@ function createEnemy(type) {
     const enemy = {
 
         id:
-            "enemy_" + Date.now() + "_" + Math.random(),
+            "enemy_" +
+            Date.now() +
+            "_" +
+            Math.random(),
 
         type,
 
@@ -730,7 +735,11 @@ function createEnemy(type) {
 
         armor: data.armor,
 
-        pathIndex: 0
+        pathIndex: 0,
+
+        remoteTargetX: null,
+
+        remoteTargetZ: null
 
     };
 
@@ -767,7 +776,9 @@ function buildWave(wave) {
             wave >= 2 &&
             i % 4 === 0
         ) {
-            type = "fast";
+
+            type =
+                "fast";
         }
 
 
@@ -775,7 +786,9 @@ function buildWave(wave) {
             wave >= 3 &&
             i % 6 === 0
         ) {
-            type = "tank";
+
+            type =
+                "tank";
         }
 
 
@@ -799,39 +812,66 @@ function buildWave(wave) {
    START WAVE
 ========================================================= */
 
-function startWave(fromRemote = false) {
+function startWave(
+    fromRemote = false
+) {
+
+    if (
+        !MULTI.host &&
+        MULTI.connected &&
+        !fromRemote
+    ) {
+
+        sendMultiplayerAction({
+            type:
+                "startWave"
+        });
+
+        return;
+    }
+
 
     if (
         GAME.waveRunning ||
         GAME.gameOver ||
         GAME.victory
     ) {
+
         return;
     }
 
-    /* Player 2 asks the host to start the wave. */
-    if (
-        MULTI.connected &&
-        !MULTI.host &&
-        !fromRemote
-    ) {
-        sendMultiplayerAction({
-            type: "startWave"
-        });
-        return;
+
+    GAME.spawnQueue =
+        buildWave(
+            GAME.wave
+        );
+
+
+    GAME.spawnIndex =
+        0;
+
+    GAME.spawnTimer =
+        0;
+
+    GAME.waveKills =
+        0;
+
+    GAME.waveRunning =
+        true;
+
+
+    startWaveButton.disabled =
+        true;
+
+
+    message(
+        `🌊 Wave ${GAME.wave} started!`
+    );
+
+
+    if (MULTI.host) {
+        multiplayerPush();
     }
-
-    GAME.spawnQueue = buildWave(GAME.wave);
-    GAME.spawnIndex = 0;
-    GAME.spawnTimer = 0;
-    GAME.waveKills = 0;
-    GAME.waveRunning = true;
-
-    startWaveButton.disabled = true;
-
-    message(`🌊 Wave ${GAME.wave} started!`);
-
-    multiplayerPush();
 }
 
 
@@ -844,6 +884,7 @@ function updateSpawning(delta) {
     if (
         !GAME.waveRunning
     ) {
+
         return;
     }
 
@@ -938,7 +979,7 @@ function updateEnemies(delta) {
         if (
             enemy.group.position
                 .distanceTo(target)
-                < .35
+            < .35
         ) {
 
             enemy.pathIndex++;
@@ -994,21 +1035,70 @@ function removeEnemy(enemy) {
 
     if (index !== -1) {
 
+        scene.remove(
+            enemy.group
+        );
+
         GAME.enemies.splice(
             index,
             1
         );
     }
-
-
-    scene.remove(
-        enemy.group
-    );
 }
 
 
 /* =========================================================
-   TOWER
+   DAMAGE ENEMY
+========================================================= */
+
+function damageEnemy(
+    enemy,
+    damage
+) {
+
+    if (!enemy) {
+        return;
+    }
+
+
+    const reduced =
+        damage *
+        (1 - enemy.armor);
+
+
+    enemy.health -=
+        reduced;
+
+
+    if (
+        enemy.health <= 0
+    ) {
+
+        GAME.coins +=
+            enemy.reward;
+
+        GAME.xp +=
+            enemy.reward;
+
+        GAME.waveKills++;
+
+        GAME.totalKills++;
+
+
+        removeEnemy(enemy);
+
+        updateHUD();
+
+        createHitEffect(
+            enemy.group.position,
+            0xffd54f
+        );
+    }
+}
+
+
+/* =========================================================
+   TOWERS
 ========================================================= */
 
 function createTower(
@@ -1028,71 +1118,53 @@ function createTower(
     const body =
         new THREE.Mesh(
 
-            new THREE.CylinderGeometry(
-                .9,
-                1.1,
-                1.4,
-                8
+            new THREE.BoxGeometry(
+                1.6,
+                1.5,
+                1.6
             ),
 
             new THREE.MeshLambertMaterial({
-                color: data.color
+                color:
+                    data.color
             })
 
         );
 
+
     body.position.y =
-        .7;
+        .75;
+
+    body.castShadow =
+        true;
 
     group.add(body);
 
 
     const turret =
-        new THREE.Group();
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                .65,
+                1.2,
+                .65
+            ),
+
+            new THREE.MeshLambertMaterial({
+                color:
+                    0xffffff
+            })
+
+        );
+
 
     turret.position.y =
-        1.25;
+        1.7;
+
+    turret.castShadow =
+        true;
 
     group.add(turret);
-
-
-    const head =
-        new THREE.Mesh(
-
-            new THREE.BoxGeometry(
-                1.1,
-                .7,
-                1.1
-            ),
-
-            new THREE.MeshLambertMaterial({
-                color: data.color
-            })
-
-        );
-
-    turret.add(head);
-
-
-    const barrel =
-        new THREE.Mesh(
-
-            new THREE.BoxGeometry(
-                .25,
-                .25,
-                1.6
-            ),
-
-            new THREE.MeshLambertMaterial({
-                color: 0x222222
-            })
-
-        );
-
-    barrel.position.z =
-        -.8;
-
-    turret.add(barrel);
 
 
     group.position.copy(
@@ -1115,17 +1187,26 @@ function createTower(
 
         owner,
 
-        mesh: group,
-
-        turret,
+        group,
 
         level: 1,
 
+        damage:
+            data.damage,
+
+        range:
+            data.range,
+
+        fireRate:
+            data.fireRate,
+
         cooldown: 0,
 
-        targetMode: "First",
+        totalSpent:
+            data.cost,
 
-        spent: data.cost
+        targetMode:
+            "first"
 
     };
 
@@ -1134,16 +1215,17 @@ function createTower(
         tower
     );
 
-
     return tower;
 }
 
 
 /* =========================================================
-   TARGET
+   TOWER STATS
 ========================================================= */
 
-function getTarget(tower) {
+function getTowerStats(
+    tower
+) {
 
     const data =
         TOWER_TYPES[
@@ -1151,149 +1233,213 @@ function getTarget(tower) {
         ];
 
 
-    const enemies =
+    let multiplier =
+        1;
+
+    let rangeMultiplier =
+        1;
+
+    let fireMultiplier =
+        1;
+
+
+    if (
+        tower.level >= 2
+    ) {
+
+        multiplier =
+            1.5;
+
+        rangeMultiplier =
+            1.15;
+
+        fireMultiplier =
+            .82;
+    }
+
+
+    if (
+        tower.level >= 3
+    ) {
+
+        multiplier =
+            2.2;
+
+        rangeMultiplier =
+            1.3;
+
+        fireMultiplier =
+            .68;
+    }
+
+
+    return {
+
+        damage:
+            data.damage *
+            multiplier,
+
+        range:
+            data.range *
+            rangeMultiplier,
+
+        fireRate:
+            data.fireRate *
+            fireMultiplier,
+
+        speed:
+            data.speed
+
+    };
+}
+
+
+/* =========================================================
+   TARGET
+========================================================= */
+
+function chooseTarget(
+    tower
+) {
+
+    const stats =
+        getTowerStats(
+            tower
+        );
+
+
+    const candidates =
         GAME.enemies.filter(
             enemy =>
-
                 enemy.group
                     .position
                     .distanceTo(
-                        tower.mesh.position
-                    )
-                <= data.range
+                        tower.group.position
+                    ) <=
+                stats.range
         );
 
 
     if (
-        enemies.length === 0
+        candidates.length === 0
     ) {
+
         return null;
     }
 
 
     if (
         tower.targetMode ===
-        "Strongest"
+        "strongest"
     ) {
 
-        return enemies.reduce(
-            (a,b) =>
-                a.health >
-                b.health
-                    ? a
-                    : b
+        return candidates.reduce(
+            (best, enemy) =>
+                enemy.health >
+                best.health
+                    ? enemy
+                    : best
         );
     }
 
 
     if (
         tower.targetMode ===
-        "Closest"
+        "closest"
     ) {
 
-        return enemies.reduce(
-            (a,b) => {
-
-                const da =
-                    a.group.position
-                        .distanceTo(
-                            tower.mesh.position
-                        );
-
-                const db =
-                    b.group.position
-                        .distanceTo(
-                            tower.mesh.position
-                        );
-
-                return da < db
-                    ? a
-                    : b;
-            }
+        return candidates.reduce(
+            (best, enemy) =>
+                enemy.group.position
+                    .distanceTo(
+                        tower.group.position
+                    ) <
+                best.group.position
+                    .distanceTo(
+                        tower.group.position
+                    )
+                    ? enemy
+                    : best
         );
     }
 
 
     if (
         tower.targetMode ===
-        "Last"
+        "last"
     ) {
 
-        return enemies.reduce(
-            (a,b) =>
-                a.pathIndex <
-                b.pathIndex
-                    ? a
-                    : b
+        return candidates.reduce(
+            (best, enemy) =>
+                enemy.pathIndex <
+                best.pathIndex
+                    ? enemy
+                    : best
         );
     }
 
 
-    return enemies.reduce(
-        (a,b) =>
-            a.pathIndex >
-            b.pathIndex
-                ? a
-                : b
+    return candidates.reduce(
+        (best, enemy) =>
+            enemy.pathIndex >
+            best.pathIndex
+                ? enemy
+                : best
     );
 }
 
 
 /* =========================================================
-   TOWERS
+   TOWER UPDATE
 ========================================================= */
 
-function updateTowers(delta) {
+function updateTowers(
+    delta
+) {
 
-    GAME.towers.forEach(
-        tower => {
+    for (
+        const tower of GAME.towers
+    ) {
 
-            tower.cooldown -=
-                delta;
-
-
-            const target =
-                getTarget(tower);
-
-
-            if (!target) {
-                return;
-            }
+        tower.cooldown -=
+            delta;
 
 
-            tower.turret.lookAt(
-                target.group.position
+        if (
+            tower.cooldown > 0
+        ) {
+
+            continue;
+        }
+
+
+        const target =
+            chooseTarget(
+                tower
             );
 
 
-            if (
-                tower.cooldown <= 0
-            ) {
-
-                fireProjectile(
-                    tower,
-                    target
-                );
-
-
-                const data =
-                    TOWER_TYPES[
-                        tower.type
-                    ];
-
-
-                tower.cooldown =
-                    data.fireRate *
-                    (
-                        tower.level === 1
-                            ? 1
-                            : tower.level === 2
-                                ? .82
-                                : .68
-                    );
-            }
+        if (!target) {
+            continue;
         }
-    );
+
+
+        const stats =
+            getTowerStats(
+                tower
+            );
+
+
+        fireProjectile(
+            tower,
+            target,
+            stats
+        );
+
+
+        tower.cooldown =
+            stats.fireRate;
+    }
 }
 
 
@@ -1303,40 +1449,35 @@ function updateTowers(delta) {
 
 function fireProjectile(
     tower,
-    target
+    target,
+    stats
 ) {
-
-    const data =
-        TOWER_TYPES[
-            tower.type
-        ];
-
 
     const projectile =
         new THREE.Mesh(
 
             new THREE.SphereGeometry(
-                tower.type === "cannon"
-                    ? .22
-                    : .14,
+                .16,
                 8,
                 8
             ),
 
             new THREE.MeshBasicMaterial({
-                color: data.color
+                color:
+                    TOWER_TYPES[
+                        tower.type
+                    ].color
             })
 
         );
 
 
     projectile.position.copy(
-        tower.mesh.position
+        tower.group.position
     );
 
-
     projectile.position.y +=
-        1.5;
+        1.6;
 
 
     scene.add(
@@ -1346,23 +1487,31 @@ function fireProjectile(
 
     GAME.projectiles.push({
 
-        mesh: projectile,
+        mesh:
+            projectile,
 
         target,
 
-        tower,
+        damage:
+            stats.damage,
 
-        speed: data.speed
+        speed:
+            stats.speed,
+
+        towerType:
+            tower.type
 
     });
 }
 
 
 /* =========================================================
-   PROJECTILES
+   PROJECTILE UPDATE
 ========================================================= */
 
-function updateProjectiles(delta) {
+function updateProjectiles(
+    delta
+) {
 
     for (
         let i =
@@ -1394,11 +1543,20 @@ function updateProjectiles(delta) {
         }
 
 
+        const target =
+            projectile.target;
+
+
         const direction =
-            projectile.target
-                .group
-                .position
+            target.group.position
                 .clone()
+                .add(
+                    new THREE.Vector3(
+                        0,
+                        1.2,
+                        0
+                    )
+                )
                 .sub(
                     projectile.mesh.position
                 );
@@ -1406,52 +1564,6 @@ function updateProjectiles(delta) {
 
         const distance =
             direction.length();
-
-
-        if (
-            distance < .5
-        ) {
-
-            let damage =
-                TOWER_TYPES[
-                    projectile.tower.type
-                ].damage;
-
-
-            if (
-                projectile.tower.level === 2
-            ) {
-                damage *= 1.5;
-            }
-
-
-            if (
-                projectile.tower.level === 3
-            ) {
-                damage *= 2.2;
-            }
-
-
-            damageEnemy(
-                projectile.target,
-                damage,
-                projectile.tower.type
-            );
-
-
-            scene.remove(
-                projectile.mesh
-            );
-
-
-            GAME.projectiles.splice(
-                i,
-                1
-            );
-
-
-            continue;
-        }
 
 
         direction.normalize();
@@ -1464,106 +1576,131 @@ function updateProjectiles(delta) {
                 projectile.speed *
                 delta
             );
+
+
+        if (
+            distance < .5
+        ) {
+
+            damageEnemy(
+                target,
+                projectile.damage
+            );
+
+
+            createHitEffect(
+                projectile.mesh.position,
+                TOWER_TYPES[
+                    projectile.towerType
+                ].color
+            );
+
+
+            scene.remove(
+                projectile.mesh
+            );
+
+            GAME.projectiles.splice(
+                i,
+                1
+            );
+        }
     }
 }
 
 
 /* =========================================================
-   DAMAGE
+   EFFECT
 ========================================================= */
 
-function damageEnemy(
-    enemy,
-    damage,
-    towerType
+function createHitEffect(
+    position,
+    color
 ) {
 
-    if (
-        !GAME.enemies.includes(
-            enemy
-        )
-    ) {
-        return;
-    }
+    const mesh =
+        new THREE.Mesh(
+
+            new THREE.SphereGeometry(
+                .2,
+                8,
+                8
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color:
+                    color,
+                transparent:
+                    true
+            })
+
+        );
 
 
-    if (
-        towerType === "archer" &&
-        enemy.type === "fast"
-    ) {
-        damage *= 1.25;
-    }
-
-
-    if (
-        towerType === "cannon" &&
-        enemy.type === "tank"
-    ) {
-        damage *= 1.35;
-    }
-
-
-    if (
-        towerType === "magic" &&
-        enemy.type === "boss"
-    ) {
-        damage *= 1.15;
-    }
-
-
-    damage *=
-        1 - enemy.armor;
-
-
-    enemy.health -=
-        damage;
-
-
-    if (
-        enemy.health <= 0
-    ) {
-
-        killEnemy(enemy);
-    }
-}
-
-
-/* =========================================================
-   KILL
-========================================================= */
-
-function killEnemy(enemy) {
-
-    if (
-        !GAME.enemies.includes(
-            enemy
-        )
-    ) {
-        return;
-    }
-
-
-    GAME.coins +=
-        enemy.reward;
-
-
-    GAME.xp +=
-        enemy.type === "boss"
-            ? 100
-            : 10;
-
-
-    GAME.waveKills++;
-
-    GAME.totalKills++;
-
-
-    removeEnemy(
-        enemy
+    mesh.position.copy(
+        position
     );
 
 
-    updateHUD();
+    scene.add(
+        mesh
+    );
+
+
+    GAME.effects.push({
+
+        mesh,
+
+        life:
+            .35
+
+    });
+}
+
+
+/* =========================================================
+   EFFECT UPDATE
+========================================================= */
+
+function updateEffects(
+    delta
+) {
+
+    for (
+        let i =
+            GAME.effects.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const effect =
+            GAME.effects[i];
+
+
+        effect.life -=
+            delta;
+
+
+        effect.mesh.scale
+            .multiplyScalar(
+                1.1
+            );
+
+
+        if (
+            effect.life <= 0
+        ) {
+
+            scene.remove(
+                effect.mesh
+            );
+
+            GAME.effects.splice(
+                i,
+                1
+            );
+        }
+    }
 }
 
 
@@ -1573,17 +1710,26 @@ function killEnemy(enemy) {
 
 function finishWave() {
 
+    if (
+        !GAME.waveRunning
+    ) {
+
+        return;
+    }
+
+
     GAME.waveRunning =
         false;
 
 
-    const reward =
+    GAME.coins +=
         25 +
         GAME.wave * 5;
 
 
-    GAME.coins +=
-        reward;
+    GAME.xp +=
+        25 +
+        GAME.wave * 5;
 
 
     if (
@@ -1606,19 +1752,21 @@ function finishWave() {
             false;
 
         message(
-            `🎉 Wave cleared! +${reward}`
+            `✅ Wave complete! Next wave: ${GAME.wave}`
         );
     }
 
 
     updateHUD();
 
-    multiplayerPush();
+    if (MULTI.host) {
+        multiplayerPush();
+    }
 }
 
 
 /* =========================================================
-   END GAME
+   GAME OVER
 ========================================================= */
 
 function endGame() {
@@ -1629,13 +1777,16 @@ function endGame() {
     GAME.waveRunning =
         false;
 
+    startWaveButton.disabled =
+        true;
 
     message(
         "💀 GAME OVER"
     );
 
-
-    multiplayerPush();
+    if (MULTI.host) {
+        multiplayerPush();
+    }
 }
 
 
@@ -1645,19 +1796,32 @@ function endGame() {
 
 function updateHUD() {
 
-    coinsEl.textContent =
-        Math.floor(
-            GAME.coins
-        );
+    if (coinsEl) {
 
-    healthEl.textContent =
-        GAME.baseHealth;
+        coinsEl.textContent =
+            GAME.coins;
+    }
 
-    waveEl.textContent =
-        GAME.wave;
 
-    xpEl.textContent =
-        GAME.xp;
+    if (healthEl) {
+
+        healthEl.textContent =
+            GAME.baseHealth;
+    }
+
+
+    if (waveEl) {
+
+        waveEl.textContent =
+            GAME.wave;
+    }
+
+
+    if (xpEl) {
+
+        xpEl.textContent =
+            GAME.xp;
+    }
 }
 
 
@@ -1665,677 +1829,607 @@ function updateHUD() {
    MESSAGE
 ========================================================= */
 
-let messageTimer;
-
-
 function message(
-    text,
-    duration = 1800
+    text
 ) {
 
-    messageEl.innerHTML =
+    if (!messageEl) {
+        return;
+    }
+
+
+    messageEl.textContent =
         text;
 
 
-    messageEl.style.opacity =
-        "1";
-
-
     clearTimeout(
-        messageTimer
+        message._timer
     );
 
 
-    messageTimer =
+    message._timer =
         setTimeout(
             () => {
 
-                messageEl.style.opacity =
-                    "0";
+                messageEl.textContent =
+                    "";
 
             },
-            duration
+            2500
         );
 }
 
 
 /* =========================================================
-   MULTIPLAYER PANEL
+   TOWER COSTS
 ========================================================= */
 
-function multiplayerMenu() {
+const UPGRADE_COSTS = {
 
-    if (
-        MULTI.connected
-    ) {
+    archer:
+        [0, 75, 125],
 
-        showRoomPanel();
+    cannon:
+        [0, 125, 200],
 
+    magic:
+        [0, 175, 275]
+
+};
+
+
+/* =========================================================
+   UPGRADE TOWER
+========================================================= */
+
+function upgradeTower(
+    tower
+) {
+
+    if (!tower) {
         return;
     }
 
 
-    openPanel(
-
-        "🌐 MULTIPLAYER",
-
-        `
-            <div style="
-                text-align:center;
-                line-height:1.8;
-            ">
-
-                <b>GREAK TOWER CO-OP</b>
-
-                <br><br>
-
-                Play together with
-                another player.
-
-                <br><br>
-
-                Create a room or
-                enter a room code.
-
-            </div>
-        `,
-
-        [
-
-            {
-                text:
-                    "🏠 CREATE ROOM",
-
-                action:
-                    createMultiplayerRoom
-            },
-
-            {
-                text:
-                    "🔑 JOIN ROOM",
-
-                action:
-                    showJoinRoom
-            },
-
-            {
-                text:
-                    "CLOSE",
-
-                action:
-                    closePanel
-            }
-
-        ]
-    );
-}
-
-
-/* =========================================================
-   CREATE ROOM
-========================================================= */
-
-async function createMultiplayerRoom() {
-
-    closePanel();
-
-
     if (
-        SERVER_URL.includes(
-            "PASTE_YOUR"
-        )
+        tower.level >= 3
     ) {
 
         message(
-            "⚠️ Add your Apps Script URL first."
+            "⭐ Tower is already max level!"
         );
 
         return;
     }
+
+
+    const cost =
+        UPGRADE_COSTS[
+            tower.type
+        ][
+            tower.level
+        ];
+
+
+    if (
+        GAME.coins < cost
+    ) {
+
+        message(
+            "❌ Not enough coins!"
+        );
+
+        return;
+    }
+
+
+    GAME.coins -=
+        cost;
+
+
+    tower.level++;
+
+
+    tower.totalSpent +=
+        cost;
+
+
+    tower.group.scale.setScalar(
+        1 +
+        .08 *
+        (tower.level - 1)
+    );
 
 
     message(
-        "🌐 Creating room..."
+        `⬆️ ${TOWER_TYPES[tower.type].name} upgraded to Level ${tower.level}!`
     );
 
 
-    try {
+    updateHUD();
 
-        const response =
-            await fetch(
-                SERVER_URL +
-                "?action=create"
-            );
 
-
-        const data =
-            await response.json();
-
-
-        if (!data.ok) {
-
-            throw new Error(
-                data.error
-            );
-        }
-
-
-        MULTI.room =
-            data.room;
-
-        MULTI.player =
-            data.player;
-
-        MULTI.host =
-            true;
-
-        MULTI.connected =
-            true;
-
-
-        updateConnectionUI();
-
-
-        showRoomPanel();
-
-
-        startMultiplayerPolling();
-        startStateSync();
-
-
-    } catch (error) {
-
-        message(
-            "❌ Could not create room."
-        );
-    }
-}
-
-
-/* =========================================================
-   JOIN ROOM
-========================================================= */
-
-function showJoinRoom() {
-
-    openPanel(
-
-        "🔑 JOIN ROOM",
-
-        `
-            <input
-                id="roomCodeInput"
-                maxlength="6"
-                placeholder="ROOM CODE"
-                style="
-                    width:100%;
-                    padding:14px;
-                    border-radius:10px;
-                    border:none;
-                    font-size:20px;
-                    text-align:center;
-                    text-transform:uppercase;
-                "
-            >
-        `,
-
-        [
-
-            {
-                text:
-                    "🚀 JOIN",
-
-                action:
-                    joinMultiplayerRoom
-            },
-
-            {
-                text:
-                    "BACK",
-
-                action:
-                    multiplayerMenu
-            }
-
-        ]
-    );
-}
-
-
-async function joinMultiplayerRoom() {
-
-    const input =
-        document.getElementById(
-            "roomCodeInput"
-        );
-
-
-    if (!input) return;
-
-
-    const code =
-        input.value
-            .trim()
-            .toUpperCase();
-
-
-    if (
-        code.length !== 6
-    ) {
-
-        message(
-            "❌ Enter a 6-character room code."
-        );
-
-        return;
-    }
-
-
-    closePanel();
-
-
-    message(
-        "🌐 Joining room..."
-    );
-
-
-    try {
-
-        const url =
-            SERVER_URL +
-            "?action=join" +
-            "&room=" +
-            encodeURIComponent(
-                code
-            ) +
-            "&player=guest";
-
-
-        const response =
-            await fetch(url);
-
-
-        const data =
-            await response.json();
-
-
-        if (!data.ok) {
-
-            throw new Error(
-                data.error
-            );
-        }
-
-
-        MULTI.room =
-            data.room;
-
-        MULTI.player =
-            "guest";
-
-        MULTI.host =
-            false;
-
-        MULTI.connected =
-            true;
-
-
-        updateConnectionUI();
-
-
-        startMultiplayerPolling();
-
-
-        message(
-            "🤝 Joined room!"
-        );
-
-
-    } catch (error) {
-
-        message(
-            "❌ " +
-            error.message
-        );
-    }
-}
-
-
-/* =========================================================
-   ROOM PANEL
-========================================================= */
-
-function showRoomPanel() {
-
-    const status =
-        MULTI.host
-            ? "👑 YOU ARE HOST"
-            : "👤 YOU ARE PLAYER 2";
-
-
-    const guest =
-        MULTI.guestOnline
-            ? "🟢 Player 2 connected"
-            : "🟡 Waiting for Player 2";
-
-
-    openPanel(
-
-        "🌐 MULTIPLAYER ROOM",
-
-        `
-            <div style="
-                text-align:center;
-            ">
-
-                <div style="
-                    font-size:13px;
-                    opacity:.7;
-                ">
-                    ROOM CODE
-                </div>
-
-                <div style="
-                    font-size:38px;
-                    font-weight:900;
-                    letter-spacing:7px;
-                    margin:10px 0;
-                ">
-                    ${MULTI.room}
-                </div>
-
-                <div>
-                    ${status}
-                </div>
-
-                <br>
-
-                <div>
-                    ${guest}
-                </div>
-
-                <br>
-
-                <small>
-                    Share this code with
-                    your teammate.
-                </small>
-
-            </div>
-        `,
-
-        [
-
-            {
-                text:
-                    "🚪 LEAVE ROOM",
-
-                action:
-                    leaveMultiplayer
-            },
-
-            {
-                text:
-                    "CLOSE",
-
-                action:
-                    closePanel
-            }
-
-        ]
-    );
-}
-
-
-/* =========================================================
-   MULTIPLAYER POLLING + ACTIONS
-========================================================= */
-
-function startMultiplayerPolling() {
-
-    clearInterval(MULTI.pollTimer);
-
-    MULTI.pollTimer = setInterval(
-        multiplayerPoll,
-        700
-    );
-
-    multiplayerPoll();
-}
-
-
-async function multiplayerPoll() {
-
-    if (!MULTI.connected || !MULTI.room) {
-        return;
-    }
-
-    try {
-
-        const url =
-            SERVER_URL +
-            "?action=state" +
-            "&room=" + encodeURIComponent(MULTI.room) +
-            "&player=" + encodeURIComponent(MULTI.player);
-
-        const response = await fetch(url, {
-            cache: "no-store"
-        });
-
-        if (!response.ok) {
-            throw new Error(`Server HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.ok) {
-            throw new Error(data.error || "Room unavailable");
-        }
-
-        MULTI.guestOnline = !!data.guestOnline;
-        updateConnectionUI();
-
-        /* HOST consumes Player 2's queued actions. */
-        if (MULTI.host && Array.isArray(data.actions)) {
-            for (const action of data.actions) {
-                processMultiplayerAction(action);
-            }
-        }
-
-        /* PLAYER 2 receives the host-authoritative game state. */
-        if (!MULTI.host && data.state) {
-            applyRemoteState(data.state);
-        }
-
-    } catch (error) {
-        console.warn("GREAK TOWER multiplayer poll:", error);
-        updateConnectionUI(false);
-    }
-}
-
-
-/* =========================================================
-   SEND PLAYER 2 ACTION
-========================================================= */
-
-async function sendMultiplayerAction(action) {
-
-    if (
-        !MULTI.connected ||
-        !MULTI.room ||
-        MULTI.host
-    ) {
-        return false;
-    }
-
-    try {
-
-        const response = await fetch(
-            SERVER_URL,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8"
-                },
-                body: JSON.stringify({
-                    action: "command",
-                    room: MULTI.room,
-                    player: "guest",
-                    command: action
-                })
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Server HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.ok) {
-            throw new Error(data.error || "Action rejected");
-        }
-
-        return true;
-
-    } catch (error) {
-
-        console.error("Cannot send multiplayer action:", error);
-        message("❌ Cannot send multiplayer action. Check that the Apps Script is deployed as the latest version.", 3500);
-        return false;
-    }
-}
-
-
-/* =========================================================
-   HOST ACTION PROCESSOR
-========================================================= */
-
-function processMultiplayerAction(action) {
-
-    if (!action || !action.type) {
-        return;
-    }
-
-    if (action.type === "startWave") {
-        startWave(true);
-        return;
-    }
-
-    if (action.type === "placeTower") {
-
-        const type = action.towerType;
-        const x = Number(action.x);
-        const z = Number(action.z);
-
-        if (!TOWER_TYPES[type]) {
-            return;
-        }
-
-        if (!Number.isFinite(x) || !Number.isFinite(z)) {
-            return;
-        }
-
-        const position = new THREE.Vector3(x, 0, z);
-        const cost = TOWER_TYPES[type].cost;
-
-        if (GAME.gameOver || GAME.victory) {
-            return;
-        }
-
-        if (GAME.coins < cost) {
-            return;
-        }
-
-        /* Host performs the authoritative placement checks. */
-        let blocked = false;
-
-        pathMeshes.forEach(path => {
-            const box = new THREE.Box3().setFromObject(path);
-            if (box.containsPoint(position)) {
-                blocked = true;
-            }
-        });
-
-        if (blocked) {
-            return;
-        }
-
-        for (const tower of GAME.towers) {
-            if (tower.mesh.position.distanceTo(position) < 2.0) {
-                return;
-            }
-        }
-
-        GAME.coins -= cost;
-        createTower(type, position, "guest");
-        updateHUD();
+    if (MULTI.host) {
         multiplayerPush();
     }
 }
 
 
 /* =========================================================
-   HOST STATE PUSH
+   SELL TOWER
 ========================================================= */
 
-function startStateSync() {
+function sellTower(
+    tower
+) {
 
-    clearInterval(MULTI.pushTimer);
-
-    MULTI.pushTimer = setInterval(() => {
-
-        if (MULTI.host && MULTI.connected) {
-            multiplayerPush();
-        }
-
-    }, 700);
-}
-
-
-async function multiplayerPush() {
-
-    if (!MULTI.host || !MULTI.connected || !MULTI.room) {
+    if (!tower) {
         return;
     }
 
-    try {
 
-        const response = await fetch(
-            SERVER_URL,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8"
-                },
-                body: JSON.stringify({
-                    action: "push",
-                    room: MULTI.room,
-                    player: "host",
-                    state: serializeGame()
-                })
-            }
+    const refund =
+        Math.floor(
+            tower.totalSpent *
+            .6
         );
 
-        if (!response.ok) {
-            throw new Error(`Server HTTP ${response.status}`);
-        }
 
-        const data = await response.json();
+    GAME.coins +=
+        refund;
 
-        if (!data.ok) {
-            throw new Error(data.error || "State push rejected");
-        }
 
-    } catch (error) {
-        console.warn("GREAK TOWER state push:", error);
-        updateConnectionUI(false);
+    const index =
+        GAME.towers.indexOf(
+            tower
+        );
+
+
+    if (
+        index !== -1
+    ) {
+
+        scene.remove(
+            tower.group
+        );
+
+        GAME.towers.splice(
+            index,
+            1
+        );
+    }
+
+
+    GAME.selectedTower =
+        null;
+
+
+    message(
+        `💰 Tower sold for ${refund} coins!`
+    );
+
+
+    updateHUD();
+
+
+    if (MULTI.host) {
+        multiplayerPush();
     }
 }
 
 
 /* =========================================================
-   SERIALIZE GAME
+   TARGETING
+========================================================= */
+
+function cycleTargetMode(
+    tower
+) {
+
+    if (!tower) {
+        return;
+    }
+
+
+    const modes = [
+        "first",
+        "last",
+        "closest",
+        "strongest"
+    ];
+
+
+    const index =
+        modes.indexOf(
+            tower.targetMode
+        );
+
+
+    tower.targetMode =
+        modes[
+            (index + 1) %
+            modes.length
+        ];
+
+
+    message(
+        `🎯 Targeting: ${tower.targetMode}`
+    );
+
+
+    if (MULTI.host) {
+        multiplayerPush();
+    }
+}
+
+
+/* =========================================================
+   ABILITIES
+========================================================= */
+
+const ABILITIES = {
+
+    archer: {
+        name:
+            "Rapid Fire",
+        duration:
+            15
+    },
+
+    cannon: {
+        name:
+            "Big Blast",
+        duration:
+            20
+    },
+
+    magic: {
+        name:
+            "Lightning",
+        duration:
+            18
+    }
+
+};
+
+
+function useAbility(
+    tower
+) {
+
+    if (!tower) {
+        return;
+    }
+
+
+    if (
+        tower.type ===
+        "archer"
+    ) {
+
+        const old =
+            tower.fireRate;
+
+
+        tower.fireRate =
+            .12;
+
+
+        setTimeout(
+            () => {
+
+                tower.fireRate =
+                    old;
+
+            },
+            15000
+        );
+
+
+        message(
+            "🏹 RAPID FIRE!"
+        );
+    }
+
+
+    if (
+        tower.type ===
+        "cannon"
+    ) {
+
+        const stats =
+            getTowerStats(
+                tower
+            );
+
+
+        GAME.enemies
+            .forEach(
+                enemy => {
+
+                    if (
+                        enemy.group
+                            .position
+                            .distanceTo(
+                                tower.group.position
+                            ) <=
+                        stats.range
+                    ) {
+
+                        damageEnemy(
+                            enemy,
+                            stats.damage * 3
+                        );
+                    }
+
+                }
+            );
+
+
+        message(
+            "💥 BIG BLAST!"
+        );
+    }
+
+
+    if (
+        tower.type ===
+        "magic"
+    ) {
+
+        const stats =
+            getTowerStats(
+                tower
+            );
+
+
+        const targets =
+            GAME.enemies.filter(
+                enemy =>
+                    enemy.group
+                        .position
+                        .distanceTo(
+                            tower.group.position
+                        ) <=
+                    stats.range
+            );
+
+
+        targets
+            .forEach(
+                enemy =>
+                    damageEnemy(
+                        enemy,
+                        stats.damage * 2
+                    )
+            );
+
+
+        message(
+            "⚡ LIGHTNING!"
+        );
+    }
+
+
+    if (MULTI.host) {
+        multiplayerPush();
+    }
+}
+
+
+/* =========================================================
+   MULTIPLAYER ACTION
+========================================================= */
+
+async function sendMultiplayerAction(
+    action
+) {
+
+    if (
+        !MULTI.connected ||
+        MULTI.host
+    ) {
+
+        return false;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                SERVER_URL,
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "text/plain;charset=utf-8"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            action:
+                                "command",
+
+                            room:
+                                MULTI.room,
+
+                            player:
+                                "guest",
+
+                            command:
+                                action
+
+                        })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!data.ok) {
+
+            message(
+                "❌ Cannot send multiplayer action."
+            );
+
+            return false;
+        }
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            error
+        );
+
+
+        message(
+            "❌ Cannot send multiplayer action."
+        );
+
+
+        return false;
+    }
+}
+
+
+/* =========================================================
+   PROCESS GUEST ACTION
+========================================================= */
+
+function processMultiplayerAction(
+    action
+) {
+
+    if (
+        !action ||
+        !MULTI.host
+    ) {
+
+        return;
+    }
+
+
+    if (
+        action.type ===
+        "startWave"
+    ) {
+
+        startWave(true);
+
+        return;
+    }
+
+
+    if (
+        action.type ===
+        "placeTower"
+    ) {
+
+        const type =
+            String(
+                action.towerType
+            );
+
+
+        if (
+            !TOWER_TYPES[type]
+        ) {
+
+            return;
+        }
+
+
+        const x =
+            Number(action.x);
+
+        const z =
+            Number(action.z);
+
+
+        if (
+            !Number.isFinite(x) ||
+            !Number.isFinite(z)
+        ) {
+
+            return;
+        }
+
+
+        const cost =
+            TOWER_TYPES[type].cost;
+
+
+        if (
+            GAME.coins < cost
+        ) {
+
+            return;
+        }
+
+
+        const position =
+            new THREE.Vector3(
+                x,
+                0,
+                z
+            );
+
+
+        const tooClose =
+            GAME.towers.some(
+                tower =>
+                    tower.group
+                        .position
+                        .distanceTo(
+                            position
+                        ) < 1.8
+            );
+
+
+        if (
+            tooClose
+        ) {
+
+            return;
+        }
+
+
+        const tower =
+            createTower(
+                type,
+                position,
+                "guest"
+            );
+
+
+        GAME.coins -=
+            cost;
+
+
+        tower.totalSpent =
+            cost;
+
+
+        updateHUD();
+
+        multiplayerPush();
+    }
+}
+
+
+/* =========================================================
+   MULTIPLAYER STATE SERIALIZE
 ========================================================= */
 
 function serializeGame() {
@@ -2363,6 +2457,9 @@ function serializeGame() {
         victory:
             GAME.victory,
 
+        waveKills:
+            GAME.waveKills,
+
         totalKills:
             GAME.totalKills,
 
@@ -2380,12 +2477,10 @@ function serializeGame() {
                         tower.owner,
 
                     x:
-                        tower.mesh
-                            .position.x,
+                        tower.group.position.x,
 
                     z:
-                        tower.mesh
-                            .position.z,
+                        tower.group.position.z,
 
                     level:
                         tower.level,
@@ -2407,12 +2502,10 @@ function serializeGame() {
                         enemy.type,
 
                     x:
-                        enemy.group
-                            .position.x,
+                        enemy.group.position.x,
 
                     z:
-                        enemy.group
-                            .position.z,
+                        enemy.group.position.z,
 
                     health:
                         enemy.health,
@@ -2435,41 +2528,77 @@ function applyRemoteState(
     state
 ) {
 
-    if (!state) return;
+    if (
+        !state ||
+        MULTI.host
+    ) {
+
+        return;
+    }
 
 
-    MULTI.syncing =
-        true;
+    MULTI.lastRemoteState =
+        state;
 
 
     GAME.coins =
-        state.coins;
+        Number(
+            state.coins ??
+            GAME.coins
+        );
+
 
     GAME.baseHealth =
-        state.baseHealth;
+        Number(
+            state.baseHealth ??
+            GAME.baseHealth
+        );
+
 
     GAME.wave =
-        state.wave;
+        Number(
+            state.wave ??
+            GAME.wave
+        );
+
 
     GAME.xp =
-        state.xp;
+        Number(
+            state.xp ??
+            GAME.xp
+        );
+
 
     GAME.waveRunning =
-        state.waveRunning;
+        Boolean(
+            state.waveRunning
+        );
+
 
     GAME.gameOver =
-        state.gameOver;
+        Boolean(
+            state.gameOver
+        );
+
 
     GAME.victory =
-        state.victory;
+        Boolean(
+            state.victory
+        );
+
+
+    GAME.waveKills =
+        Number(
+            state.waveKills ??
+            GAME.waveKills
+        );
+
 
     GAME.totalKills =
-        state.totalKills || 0;
-
-    startWaveButton.disabled =
-        !!state.waveRunning ||
-        !!state.gameOver ||
-        !!state.victory;
+        Number(
+            state.totalKills ??
+            GAME.totalKills
+        );
 
 
     syncTowers(
@@ -2482,11 +2611,13 @@ function applyRemoteState(
     );
 
 
+    startWaveButton.disabled =
+        GAME.waveRunning ||
+        GAME.gameOver ||
+        GAME.victory;
+
+
     updateHUD();
-
-
-    MULTI.syncing =
-        false;
 }
 
 
@@ -2500,13 +2631,10 @@ function syncTowers(
 
     const remoteIds =
         remoteTowers.map(
-            tower => tower.id
+            tower =>
+                tower.id
         );
 
-
-    /*
-       CREATE MISSING TOWERS
-    */
 
     remoteTowers.forEach(
         remote => {
@@ -2521,19 +2649,19 @@ function syncTowers(
 
             if (!tower) {
 
+                const position =
+                    new THREE.Vector3(
+                        remote.x,
+                        0,
+                        remote.z
+                    );
+
+
                 tower =
                     createTower(
-
                         remote.type,
-
-                        new THREE.Vector3(
-                            remote.x,
-                            0,
-                            remote.z
-                        ),
-
+                        position,
                         remote.owner
-
                     );
 
 
@@ -2542,20 +2670,28 @@ function syncTowers(
             }
 
 
-            tower.level =
-                remote.level;
-
-            tower.targetMode =
-                remote.targetMode;
-
-            tower.mesh.position.x =
+            tower.group
+                .position
+                .x =
                 remote.x;
 
-            tower.mesh.position.z =
+
+            tower.group
+                .position
+                .z =
                 remote.z;
 
 
-            tower.mesh.scale.setScalar(
+            tower.level =
+                remote.level;
+
+
+            tower.targetMode =
+                remote.targetMode ||
+                "first";
+
+
+            tower.group.scale.setScalar(
                 1 +
                 .08 *
                 (tower.level - 1)
@@ -2563,11 +2699,6 @@ function syncTowers(
         }
     );
 
-
-    /*
-       REMOVE TOWERS THAT
-       NO LONGER EXIST
-    */
 
     for (
         let i =
@@ -2587,8 +2718,9 @@ function syncTowers(
         ) {
 
             scene.remove(
-                tower.mesh
+                tower.group
             );
+
 
             GAME.towers.splice(
                 i,
@@ -2603,40 +2735,214 @@ function syncTowers(
    SYNC ENEMIES
 ========================================================= */
 
-function syncEnemies(remoteEnemies) {
+function syncEnemies(
+    remoteEnemies
+) {
 
-    const remoteIds = remoteEnemies.map(enemy => enemy.id);
+    const remoteIds =
+        remoteEnemies.map(
+            enemy =>
+                enemy.id
+        );
 
-    remoteEnemies.forEach(remote => {
-        let enemy = GAME.enemies.find(e => e.id === remote.id);
 
-        if (!enemy) {
-            createEnemy(remote.type);
-            enemy = GAME.enemies[GAME.enemies.length - 1];
-            enemy.id = remote.id;
+    remoteEnemies.forEach(
+        remote => {
+
+            let enemy =
+                GAME.enemies.find(
+                    e =>
+                        e.id ===
+                        remote.id
+                );
+
+
+            if (!enemy) {
+
+                createEnemy(
+                    remote.type
+                );
+
+
+                enemy =
+                    GAME.enemies[
+                        GAME.enemies.length - 1
+                    ];
+
+
+                enemy.id =
+                    remote.id;
+
+                enemy.remoteTargetX =
+                    Number(remote.x);
+
+                enemy.remoteTargetZ =
+                    Number(remote.z);
+
+            }
+
+
+            if (
+                enemy.type !==
+                remote.type
+            ) {
+
+                scene.remove(
+                    enemy.group
+                );
+
+
+                const index =
+                    GAME.enemies.indexOf(
+                        enemy
+                    );
+
+
+                if (
+                    index !== -1
+                ) {
+
+                    GAME.enemies.splice(
+                        index,
+                        1
+                    );
+                }
+
+
+                createEnemy(
+                    remote.type
+                );
+
+
+                enemy =
+                    GAME.enemies[
+                        GAME.enemies.length - 1
+                    ];
+
+
+                enemy.id =
+                    remote.id;
+
+                enemy.remoteTargetX =
+                    Number(remote.x);
+
+                enemy.remoteTargetZ =
+                    Number(remote.z);
+
+            } else {
+
+                enemy.remoteTargetX =
+                    Number(remote.x);
+
+                enemy.remoteTargetZ =
+                    Number(remote.z);
+            }
+
+
+            enemy.health =
+                remote.health;
+
+
+            enemy.pathIndex =
+                remote.pathIndex;
+        }
+    );
+
+
+    for (
+        let i =
+            GAME.enemies.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const enemy =
+            GAME.enemies[i];
+
+
+        if (
+            !remoteIds.includes(
+                enemy.id
+            )
+        ) {
+
+            scene.remove(
+                enemy.group
+            );
+
+
+            GAME.enemies.splice(
+                i,
+                1
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   V0.8 PLAYER 2 SMOOTH MOVEMENT
+   Host remains authoritative.
+   Player 2 smoothly moves enemies toward the latest
+   positions received from the host.
+========================================================= */
+
+function smoothRemoteEnemies(
+    delta
+) {
+
+    if (
+        !MULTI.connected ||
+        MULTI.host
+    ) {
+
+        return;
+    }
+
+
+    const blend =
+        1 -
+        Math.exp(
+            -12 *
+            delta
+        );
+
+
+    for (
+        const enemy of GAME.enemies
+    ) {
+
+        if (
+            !Number.isFinite(
+                enemy.remoteTargetX
+            ) ||
+            !Number.isFinite(
+                enemy.remoteTargetZ
+            )
+        ) {
+
+            continue;
         }
 
-        if (enemy.type !== remote.type) {
-            scene.remove(enemy.group);
-            const index = GAME.enemies.indexOf(enemy);
-            if (index !== -1) GAME.enemies.splice(index, 1);
-            createEnemy(remote.type);
-            enemy = GAME.enemies[GAME.enemies.length - 1];
-            enemy.id = remote.id;
-        }
 
-        enemy.group.position.x = remote.x;
-        enemy.group.position.z = remote.z;
-        enemy.health = remote.health;
-        enemy.pathIndex = remote.pathIndex;
-    });
+        enemy.group
+            .position
+            .x +=
+            (
+                enemy.remoteTargetX -
+                enemy.group.position.x
+            ) *
+            blend;
 
-    for (let i = GAME.enemies.length - 1; i >= 0; i--) {
-        const enemy = GAME.enemies[i];
-        if (!remoteIds.includes(enemy.id)) {
-            scene.remove(enemy.group);
-            GAME.enemies.splice(i, 1);
-        }
+
+        enemy.group
+            .position
+            .z +=
+            (
+                enemy.remoteTargetZ -
+                enemy.group.position.z
+            ) *
+            blend;
     }
 }
 
@@ -2665,28 +2971,474 @@ function updateConnectionUI(
 
 
     connectionDot.style.background =
-        MULTI.guestOnline ||
-        !MULTI.host
-            ? "#24d05a"
-            : "#ffc107";
+        "#00c853";
 
 
-    connectionText.textContent =
+    if (
         MULTI.host
-            ? (
-                MULTI.guestOnline
-                    ? "2 Players"
-                    : "Waiting..."
-            )
-            : "Connected";
+    ) {
+
+        connectionText.textContent =
+            MULTI.guestOnline
+                ? "2 Players"
+                : "Waiting for Player 2";
+
+    } else {
+
+        connectionText.textContent =
+            MULTI.guestOnline
+                ? "2 Players"
+                : "Connected";
+    }
 }
 
 
 /* =========================================================
-   LEAVE
+   MULTIPLAYER POLLING
 ========================================================= */
 
-async function leaveMultiplayer() {
+function startMultiplayerPolling() {
+
+    clearInterval(
+        MULTI.pollTimer
+    );
+
+
+    MULTI.pollTimer =
+        setInterval(
+            multiplayerPoll,
+            700
+        );
+}
+
+
+async function multiplayerPoll() {
+
+    if (
+        !MULTI.connected ||
+        !MULTI.room
+    ) {
+
+        return;
+    }
+
+
+    try {
+
+        const url =
+            SERVER_URL +
+            "?action=state" +
+            "&room=" +
+            encodeURIComponent(
+                MULTI.room
+            ) +
+            "&player=" +
+            encodeURIComponent(
+                MULTI.player
+            ) +
+            "&t=" +
+            Date.now();
+
+
+        const response =
+            await fetch(
+                url,
+                {
+                    cache:
+                        "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data.ok
+        ) {
+
+            return;
+        }
+
+
+        MULTI.guestOnline =
+            Boolean(
+                data.guestOnline
+            );
+
+
+        updateConnectionUI();
+
+
+        if (
+            MULTI.host
+        ) {
+
+            const actions =
+                Array.isArray(
+                    data.actions
+                )
+                    ? data.actions
+                    : [];
+
+
+            actions.forEach(
+                processMultiplayerAction
+            );
+
+        } else {
+
+            applyRemoteState(
+                data.state
+            );
+        }
+
+    } catch (
+        error
+    ) {
+
+        console.warn(
+            "Multiplayer poll failed:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   MULTIPLAYER PUSH
+========================================================= */
+
+async function multiplayerPush() {
+
+    if (
+        !MULTI.connected ||
+        !MULTI.host ||
+        !MULTI.room
+    ) {
+
+        return;
+    }
+
+
+    if (
+        MULTI.syncing
+    ) {
+
+        return;
+    }
+
+
+    MULTI.syncing =
+        true;
+
+
+    try {
+
+        const response =
+            await fetch(
+                SERVER_URL,
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "text/plain;charset=utf-8"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            action:
+                                "push",
+
+                            room:
+                                MULTI.room,
+
+                            player:
+                                "host",
+
+                            state:
+                                serializeGame()
+
+                        })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data.ok
+        ) {
+
+            console.warn(
+                "State push rejected:",
+                data.error
+            );
+        }
+
+    } catch (
+        error
+    ) {
+
+        console.warn(
+            "State push failed:",
+            error
+        );
+
+    } finally {
+
+        MULTI.syncing =
+            false;
+    }
+}
+
+
+/* =========================================================
+   STATE SYNC
+========================================================= */
+
+function startStateSync() {
+
+    clearInterval(
+        MULTI.pushTimer
+    );
+
+
+    if (
+        !MULTI.host
+    ) {
+
+        return;
+    }
+
+
+    MULTI.pushTimer =
+        setInterval(
+            multiplayerPush,
+            700
+        );
+}
+
+
+/* =========================================================
+   CREATE ROOM
+========================================================= */
+
+async function createRoom() {
+
+    try {
+
+        const response =
+            await fetch(
+                SERVER_URL +
+                "?action=create&t=" +
+                Date.now(),
+                {
+                    cache:
+                        "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data.ok
+        ) {
+
+            message(
+                "❌ Could not create room."
+            );
+
+            return;
+        }
+
+
+        MULTI.connected =
+            true;
+
+        MULTI.room =
+            data.room;
+
+        MULTI.player =
+            "host";
+
+        MULTI.host =
+            true;
+
+        MULTI.guestOnline =
+            false;
+
+
+        updateConnectionUI();
+
+
+        message(
+            `Room created: ${MULTI.room}`
+        );
+
+
+        startMultiplayerPolling();
+
+        startStateSync();
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            error
+        );
+
+
+        message(
+            "❌ Multiplayer connection failed."
+        );
+    }
+}
+
+
+/* =========================================================
+   JOIN ROOM
+========================================================= */
+
+async function joinRoom(
+    roomCode
+) {
+
+    const code =
+        String(
+            roomCode || ""
+        )
+        .trim()
+        .toUpperCase();
+
+
+    if (!code) {
+
+        message(
+            "Enter a room code."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                SERVER_URL +
+                "?action=join" +
+                "&room=" +
+                encodeURIComponent(
+                    code
+                ) +
+                "&player=guest" +
+                "&t=" +
+                Date.now(),
+                {
+                    cache:
+                        "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data.ok
+        ) {
+
+            message(
+                "❌ " +
+                (
+                    data.error ||
+                    "Could not join room."
+                )
+            );
+
+            return;
+        }
+
+
+        MULTI.connected =
+            true;
+
+        MULTI.room =
+            data.room;
+
+        MULTI.player =
+            "guest";
+
+        MULTI.host =
+            false;
+
+        MULTI.guestOnline =
+            true;
+
+
+        updateConnectionUI();
+
+
+        if (
+            data.state
+        ) {
+
+            applyRemoteState(
+                data.state
+            );
+        }
+
+
+        startMultiplayerPolling();
+
+
+        message(
+            `Joined room ${MULTI.room}`
+        );
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            error
+        );
+
+
+        message(
+            "❌ Multiplayer connection failed."
+        );
+    }
+}
+
+
+/* =========================================================
+   LEAVE ROOM
+========================================================= */
+
+async function leaveRoom() {
+
+    if (
+        !MULTI.room
+    ) {
+
+        return;
+    }
+
 
     try {
 
@@ -2698,23 +3450,31 @@ async function leaveMultiplayer() {
                 MULTI.room
             ) +
             "&player=" +
-            MULTI.player
+            encodeURIComponent(
+                MULTI.player
+            ) +
+            "&t=" +
+            Date.now()
         );
 
-    } catch (error) {}
+    } catch (
+        error
+    ) {
+
+        console.warn(
+            error
+        );
+    }
 
 
-    leaveLocalRoom();
-
-    closePanel();
-
-    message(
-        "🚪 Left multiplayer room."
+    clearInterval(
+        MULTI.pollTimer
     );
-}
 
+    clearInterval(
+        MULTI.pushTimer
+    );
 
-function leaveLocalRoom() {
 
     MULTI.connected =
         false;
@@ -2731,14 +3491,8 @@ function leaveLocalRoom() {
     MULTI.guestOnline =
         false;
 
-
-    clearInterval(
-        MULTI.pollTimer
-    );
-
-    clearInterval(
-        MULTI.pushTimer
-    );
+    MULTI.lastRemoteState =
+        null;
 
 
     updateConnectionUI(
@@ -2748,256 +3502,117 @@ function leaveLocalRoom() {
 
 
 /* =========================================================
-   PANEL
+   MULTIPLAYER UI
 ========================================================= */
 
-let currentPanel =
-    null;
-
-
-function openPanel(
-    title,
-    content,
-    buttons
+if (
+    multiplayerButton
 ) {
 
-    closePanel();
+    multiplayerButton.addEventListener(
+        "click",
+        async () => {
 
-
-    const panel =
-        document.createElement(
-            "div"
-        );
-
-
-    Object.assign(
-        panel.style,
-        {
-
-            position:
-                "fixed",
-
-            top:
-                "50%",
-
-            left:
-                "50%",
-
-            transform:
-                "translate(-50%,-50%)",
-
-            zIndex:
-                "100",
-
-            width:
-                "min(400px,92vw)",
-
-            padding:
-                "22px",
-
-            borderRadius:
-                "18px",
-
-            background:
-                "rgba(12,18,30,.97)",
-
-            color:
-                "white",
-
-            boxShadow:
-                "0 20px 60px rgba(0,0,0,.5)"
-
-        }
-    );
-
-
-    const heading =
-        document.createElement(
-            "h2"
-        );
-
-
-    heading.innerHTML =
-        title;
-
-
-    heading.style.marginBottom =
-        "14px";
-
-
-    panel.appendChild(
-        heading
-    );
-
-
-    const contentDiv =
-        document.createElement(
-            "div"
-        );
-
-
-    contentDiv.innerHTML =
-        content;
-
-
-    contentDiv.style.lineHeight =
-        "1.7";
-
-
-    panel.appendChild(
-        contentDiv
-    );
-
-
-    buttons.forEach(
-        data => {
-
-            const button =
-                document.createElement(
-                    "button"
+            const choice =
+                prompt(
+                    "Type CREATE to make a room, or JOIN to join one:"
                 );
 
 
-            button.textContent =
-                data.text;
-
-
-            button.style.width =
-                "100%";
-
-
-            button.style.marginTop =
-                "8px";
-
-
-            button.addEventListener(
-                "click",
-                data.action
-            );
-
-
-            panel.appendChild(
-                button
-            );
-        }
-    );
-
-
-    document.body.appendChild(
-        panel
-    );
-
-
-    currentPanel =
-        panel;
-}
-
-
-function closePanel() {
-
-    if (
-        currentPanel
-    ) {
-
-        currentPanel.remove();
-
-        currentPanel =
-            null;
-    }
-}
-
-
-/* =========================================================
-   TOWER MENU
-========================================================= */
-
-function towerMenu() {
-
-    openPanel(
-
-        "🏰 BUILD TOWER",
-
-        `
-            Choose a tower:
-
-            <br><br>
-
-            🏹 Archer — 50<br>
-            💣 Cannon — 100<br>
-            🔮 Magic — 150
-        `,
-
-        [
-
-            {
-                text:
-                    "🏹 ARCHER",
-
-                action: () =>
-                    selectTower(
-                        "archer"
-                    )
-            },
-
-            {
-                text:
-                    "💣 CANNON",
-
-                action: () =>
-                    selectTower(
-                        "cannon"
-                    )
-            },
-
-            {
-                text:
-                    "🔮 MAGIC",
-
-                action: () =>
-                    selectTower(
-                        "magic"
-                    )
-            },
-
-            {
-                text:
-                    "CLOSE",
-
-                action:
-                    closePanel
+            if (!choice) {
+                return;
             }
 
-        ]
-    );
-}
+
+            if (
+                choice
+                    .trim()
+                    .toUpperCase() ===
+                "CREATE"
+            ) {
+
+                await createRoom();
+
+                return;
+            }
 
 
-function selectTower(
-    type
-) {
+            if (
+                choice
+                    .trim()
+                    .toUpperCase() ===
+                "JOIN"
+            ) {
 
-    GAME.selectedTowerType =
-        type;
-
-    GAME.towerMode =
-        true;
-
-    closePanel();
+                const room =
+                    prompt(
+                        "Enter the room code:"
+                    );
 
 
-    message(
-        "🖱️ Click the map to place your tower."
+                if (room) {
+
+                    await joinRoom(
+                        room
+                    );
+                }
+            }
+
+        }
     );
 }
 
 
 /* =========================================================
-   MAP CLICK
+   START WAVE BUTTON
+========================================================= */
+
+if (
+    startWaveButton
+) {
+
+    startWaveButton.addEventListener(
+        "click",
+        () => {
+
+            startWave();
+
+        }
+    );
+}
+
+
+/* =========================================================
+   TOWER BUTTON
+========================================================= */
+
+if (
+    towerButton
+) {
+
+    towerButton.addEventListener(
+        "click",
+        () => {
+
+            GAME.towerMode =
+                !GAME.towerMode;
+
+            GAME.selectedTowerType =
+                GAME.towerMode
+                    ? "archer"
+                    : null;
+
+        }
+    );
+}
+
+
+/* =========================================================
+   RAYCAST
 ========================================================= */
 
 const raycaster =
     new THREE.Raycaster();
-
 
 const mouse =
     new THREE.Vector2();
@@ -3008,14 +3623,21 @@ renderer.domElement.addEventListener(
     event => {
 
         mouse.x =
-            event.clientX /
-            innerWidth *
-            2 - 1;
+            (
+                event.clientX /
+                innerWidth
+            ) *
+            2 -
+            1;
+
 
         mouse.y =
-            -(event.clientY /
-                innerHeight *
-                2 - 1);
+            -(
+                event.clientY /
+                innerHeight
+            ) *
+            2 +
+            1;
 
 
         raycaster.setFromCamera(
@@ -3024,80 +3646,49 @@ renderer.domElement.addEventListener(
         );
 
 
+        const intersects =
+            raycaster.intersectObjects(
+                scene.children,
+                true
+            );
+
+
+        if (
+            intersects.length === 0
+        ) {
+
+            return;
+        }
+
+
+        const point =
+            intersects[0]
+                .point;
+
+
         if (
             GAME.towerMode
         ) {
 
-            const hits =
-                raycaster
-                    .intersectObject(
-                        ground
-                    );
-
-
-            if (
-                !hits.length
-            ) {
-                return;
-            }
-
-
-            const position =
-                hits[0].point;
-
-
-            let blocked =
-                false;
-
-
-            pathMeshes.forEach(
-                path => {
-
-                    const box =
-                        new THREE.Box3()
-                            .setFromObject(
-                                path
-                            );
-
-
-                    if (
-                        box.containsPoint(
-                            position
-                        )
-                    ) {
-
-                        blocked =
-                            true;
-                    }
-                }
-            );
-
-
-            if (
-                blocked
-            ) {
-
-                message(
-                    "❌ Can't build on the path!"
-                );
-
-                return;
-            }
-
-
             const type =
-                GAME.selectedTowerType;
+                GAME.selectedTowerType ||
+                "archer";
+
+
+            if (
+                !TOWER_TYPES[type]
+            ) {
+
+                return;
+            }
 
 
             const cost =
-                TOWER_TYPES[
-                    type
-                ].cost;
+                TOWER_TYPES[type].cost;
 
 
             if (
-                GAME.coins <
-                cost
+                GAME.coins < cost
             ) {
 
                 message(
@@ -3108,64 +3699,100 @@ renderer.domElement.addEventListener(
             }
 
 
-            /* Player 2 sends the placement to the host.
-               The host then validates the position, charges coins,
-               creates the tower, and broadcasts the result. */
-            if (MULTI.connected && !MULTI.host) {
+            const pathHit =
+                pathMeshes.some(
+                    mesh =>
+                        intersects.some(
+                            hit =>
+                                hit.object ===
+                                mesh
+                        )
+                );
 
-                sendMultiplayerAction({
-                    type: "placeTower",
-                    towerType: type,
-                    x: Number(position.x.toFixed(3)),
-                    z: Number(position.z.toFixed(3))
-                });
 
-                GAME.towerMode = false;
-                GAME.selectedTowerType = null;
+            if (
+                pathHit
+            ) {
 
-                message("📡 Sending tower to Player 1...");
+                message(
+                    "❌ You cannot build on the path."
+                );
+
                 return;
             }
 
-            GAME.coins -= cost;
+
+            if (
+                MULTI.connected &&
+                !MULTI.host
+            ) {
+
+                sendMultiplayerAction({
+
+                    type:
+                        "placeTower",
+
+                    towerType:
+                        type,
+
+                    x:
+                        point.x,
+
+                    z:
+                        point.z
+
+                });
+
+
+                GAME.towerMode =
+                    false;
+
+                GAME.selectedTowerType =
+                    null;
+
+
+                message(
+                    "📡 Sending tower to Player 1..."
+                );
+
+
+                return;
+            }
+
+
+            GAME.coins -=
+                cost;
+
 
             createTower(
                 type,
-                position,
-                MULTI.host ? "host" : MULTI.player
+                new THREE.Vector3(
+                    point.x,
+                    0,
+                    point.z
+                ),
+                MULTI.player
             );
 
-            GAME.towerMode = false;
-            GAME.selectedTowerType = null;
+
+            GAME.towerMode =
+                false;
+
+            GAME.selectedTowerType =
+                null;
+
 
             updateHUD();
-            multiplayerPush();
+
+
+            if (MULTI.host) {
+                multiplayerPush();
+            }
+
 
             return;
         }
     }
-);
-
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-startWaveButton.addEventListener(
-    "click",
-    startWave
-);
-
-
-towerButton.addEventListener(
-    "click",
-    towerMenu
-);
-
-
-multiplayerButton.addEventListener(
-    "click",
-    multiplayerMenu
 );
 
 
@@ -3219,13 +3846,6 @@ function animate(now) {
         now;
 
 
-    /*
-       HOST SIMULATES THE GAME.
-
-       GUEST mainly receives
-       the host's state.
-    */
-
     if (
         !GAME.gameOver &&
         !GAME.victory
@@ -3237,10 +3857,16 @@ function animate(now) {
         ) {
 
             /*
-               Guest doesn't run
-               the authoritative
+               Player 2 does NOT run the authoritative
                simulation.
+
+               Instead, V0.8 smoothly interpolates the
+               latest positions received from Player 1.
             */
+
+            smoothRemoteEnemies(
+                delta
+            );
 
         } else {
 
@@ -3260,6 +3886,9 @@ function animate(now) {
                 delta
             );
 
+            updateEffects(
+                delta
+            );
         }
     }
 
